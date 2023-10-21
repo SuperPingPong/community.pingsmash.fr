@@ -1,0 +1,18 @@
+server {
+    listen 80 default_server;
+    server_name localhost;
+    server_tokens off;
+
+    location /api {
+        proxy_pass http://api:5000;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header Host $host;
+    }
+
+    location / {
+        root /usr/share/nginx/html;
+        add_header Cache-Control no-cache;
+        error_page 404 /404.html;
+        index index.html;
+    }
+}
