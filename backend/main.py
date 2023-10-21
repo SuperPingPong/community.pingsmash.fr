@@ -3,10 +3,9 @@ from flask_cors import CORS
 
 from os import environ
 import requests
-import json
-import xmltodict
 import urllib3
-import xml.etree.ElementTree as ET
+
+from utils import format_response
 
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
@@ -21,19 +20,17 @@ session.verify = False
 
 @app.route("/api/organismes", methods=['GET', 'OPTIONS'])
 def list_organismes():
+    organisme_type = request.args.get("type", "")
     """
     type:
     - D: Départemental
     - L: Régional
     - Z: National
     """
-    organisme_type = request.args.get("type", "")
     if not organisme_type:
         abort(400)
     url = "https://fftt.dafunker.com/v1//proxy/xml_organisme.php"
     response = session.get(url, params={"type": organisme_type})
-    xml = ET.fromstring(response.content.replace(b'ISO-8859-1', b'UTF-8'))
-    result = xmltodict.parse(ET.tostring(xml, encoding='utf-8'))
     """
     {
       "liste": {
@@ -46,7 +43,7 @@ def list_organismes():
           },
           ...
     """
-    return json.dumps(result), response.status_code, {'Content-Type': 'application/json; charset=utf-8'}
+    return format_response(response)
 
 
 @app.route("/api/epreuves", methods=['GET', 'OPTIONS'])
@@ -61,8 +58,6 @@ def list_epreuves():
         "type": "E",
         "no_organisme_proxy": 1
     })
-    xml = ET.fromstring(response.content.replace(b'ISO-8859-1', b'UTF-8'))
-    result = xmltodict.parse(ET.tostring(xml, encoding='utf-8'))
     """
     {
       "liste": {
@@ -76,7 +71,7 @@ def list_epreuves():
           },
           ...
     """
-    return json.dumps(result), response.status_code, {'Content-Type': 'application/json; charset=utf-8'}
+    return format_response(response)
 
 
 @app.route("/api/divisions", methods=['GET', 'OPTIONS'])
@@ -93,8 +88,6 @@ def list_divisions():
         "type": "E",
         "no_organisme_proxy": 1
     })
-    xml = ET.fromstring(response.content.replace(b'ISO-8859-1', b'UTF-8'))
-    result = xmltodict.parse(ET.tostring(xml, encoding='utf-8'))
     """
     {
       "liste": {
@@ -105,7 +98,7 @@ def list_divisions():
           },
           ...
     """
-    return json.dumps(result), response.status_code, {'Content-Type': 'application/json; charset=utf-8'}
+    return format_response(response)
 
 
 # TODO: make a map club_id with names
@@ -130,11 +123,10 @@ def list_equipes():
       }
       ...
     """
-    equipes = json.loads(response.content)
-    return json.dumps(equipes), response.status_code, {'Content-Type': 'application/json; charset=utf-8'}
+    return format_response(response)
 
 
-@app.route("/api/result_equs", methods=['GET', 'OPTIONS'])
+@app.route("/api/team/results", methods=['GET', 'OPTIONS'])
 def get_team_results():
     division_id = request.args.get("D1", "")
     poule_id = request.args.get("cx_poule", "")
@@ -143,11 +135,10 @@ def get_team_results():
 
     url = "https://fftt.dafunker.com/v1//proxy/xml_result_equ.php"
     response = session.get(url, params={
+        "force": 1,
         "D1": division_id,
         "cx_poule": poule_id,
     })
-    xml = ET.fromstring(response.content.replace(b'ISO-8859-1', b'UTF-8'))
-    result = xmltodict.parse(ET.tostring(xml, encoding='utf-8'))
     """
     {
       "liste": {
@@ -165,7 +156,41 @@ def get_team_results():
           ...
         
     """
-    return json.dumps(result), response.status_code, {'Content-Type': 'application/json; charset=utf-8'}
+    return format_response(response)
+
+
+@app.route("/api/team/rank", methods=['GET', 'OPTIONS'])
+def get_team_rank():
+    division_id = request.args.get("D1", "")
+    poule_id = request.args.get("cx_poule", "")
+    if not division_id or not poule_id:
+        abort(400)
+
+    url = "https://fftt.dafunker.com/v1//proxy/xml_result_equ.php"
+    response = session.get(url, params={
+        "force": 1,
+        "action": "classement",
+        "D1": division_id,
+        "cx_poule": poule_id,
+    })
+    """
+    {
+      "liste": {
+        "tour": [
+          {
+            "libelle": "Poule 5 - tour n°1 du 29/09/2023",
+            "equa": "LAGNY SMTT 4",
+            "equb": "LOGNES EP 11",
+            "scorea": "24",
+            "scoreb": "18",
+            "lien": "renc_id=2472719&is_retour=0&phase=1&res_1=24&res_2=18&equip_1=LAGNY+SMTT+4&equip_2=LOGNES+EP+11&equip_id1=9133&equip_id2=9188&clubnum_1=08770166&clubnum_2=08771184",
+            "dateprevue": "29/09/2023",
+            "datereelle": "29/09/2023"
+          },
+          ...
+
+    """
+    return format_response(response)
 
 
 @app.route("/api/result_chp_renc", methods=['GET', 'OPTIONS'])
@@ -183,8 +208,6 @@ def get_team_matchs():
         params[param] = param_value
     url = "https://fftt.dafunker.com/v1//proxy/xml_chp_renc.php"
     response = session.get(url, params=params)
-    xml = ET.fromstring(response.content.replace(b'ISO-8859-1', b'UTF-8'))
-    result = xmltodict.parse(ET.tostring(xml, encoding='utf-8'))
     """
     {
       "liste": {
@@ -233,7 +256,7 @@ def get_team_matchs():
       }
     }
     """
-    return json.dumps(result), response.status_code, {'Content-Type': 'application/json; charset=utf-8'}
+    return format_response(response)
 
 
 if __name__ == "__main__":
