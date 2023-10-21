@@ -1,0 +1,13 @@
+version: '2'
+services:
+  api:
+    build: backend
+    restart: always
+    ports:
+      - '127.0.0.1:5000:5000'
+    environment:
+      - DEBUG=True
+      - PYTHONUNBUFFERED=1
+    volumes:
+      #  - $PWD/backend/utils.py:/app/utils.py
+      - $PWD/backend/main.py:/app/main.py
