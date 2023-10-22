@@ -25,7 +25,8 @@ def list_organismes():
     type:
     - D: Départemental
     - L: Régional
-    - Z: National
+    - Z: Zones
+    --> National: organisme_id=1
     """
     if not organisme_type:
         abort(400)
@@ -101,7 +102,6 @@ def list_divisions():
     return format_response(response)
 
 
-# TODO: make a map club_id with names
 @app.route("/api/equipes", methods=['GET', 'OPTIONS'])
 def list_equipes():
     club_id = request.args.get("club_id", "")
