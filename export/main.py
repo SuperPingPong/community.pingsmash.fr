@@ -93,19 +93,6 @@ def update_map_club_name_club_id(result: Dict):
     return
 
 
-organisme_types = [
-    'L',
-    'D',
-]
-"""
-type:
-- D: Départemental
-- L: Régional
-- Z: Zones
---> National: organisme_id=1
-"""
-
-
 def update_map_by_organisme_id(organisme_id):
     url = "https://fftt.dafunker.com/v1//proxy/xml_epreuve.php"
     response = session.get(url, params={
@@ -146,6 +133,18 @@ def update_map_by_organisme_id(organisme_id):
             #  print(json.dumps(result_poule_details, indent=4))
             update_map_club_name_club_id(result_poule_details)
 
+
+organisme_types = [
+    'L',
+    'D',
+]
+"""
+type:
+- D: Départemental
+- L: Régional
+- Z: Zones
+--> National: organisme_id=1
+"""
 
 organisme_ids = [
     '1',  # National
