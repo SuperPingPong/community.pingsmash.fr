@@ -63,8 +63,9 @@ http://127.0.0.1:5000/api/team/results?cx_poule=654463&D1=125542
         "datereelle": "23/09/2023"
       },
       ...
-   }     
-]
+    ]
+  }
+}
 ```
 
 ### Search for matchs details by teams
