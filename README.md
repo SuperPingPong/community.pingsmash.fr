@@ -52,6 +52,7 @@ http://127.0.0.1:5000/api/team/results?cx_poule=654463&D1=125542
 {
   "liste": {
     "tour": [
+      ...
       {
         "libelle": "Poule 2 - tour n°1 du 23/09/2023",
         "equa": "MANOM JS 2",
