@@ -16,5 +16,6 @@ services:
       - DEBUG=True
       - PYTHONUNBUFFERED=1
     volumes:
+      - $PWD/backend/map.json:/app/map.json
       - $PWD/backend/utils.py:/app/utils.py
       - $PWD/backend/main.py:/app/main.py

@@ -2,6 +2,7 @@ from flask import Flask, request, abort
 from flask_cors import CORS
 
 from os import environ
+import json
 import requests
 import urllib3
 
@@ -16,6 +17,35 @@ debug = environ.get('DEBUG', False)
 
 session = requests.session()
 session.verify = False
+
+with open('map.json', 'rb') as f:
+    MAP_CLUB_NAME_CLUB_ID = json.loads(f.read())
+
+
+@app.route('/api/club/search', methods=['GET', 'OPTIONS'])
+def search_club():
+    search_club_name = request.args.get('club_name', '').lower()
+    result = [
+        {
+            'club_name': club_name,
+            'club_id': club_id
+        }
+        for club_name, club_id in MAP_CLUB_NAME_CLUB_ID.items()
+        if search_club_name in club_name.lower()
+    ]
+    return json.dumps(result[:10]), 200, {'Content-Type': 'application/json; charset=utf-8'}
+
+
+@app.route('/api/club/select', methods=['GET', 'OPTIONS'])
+def select_club():
+    select_club_name = request.args.get('club_name', '')
+    if select_club_name not in MAP_CLUB_NAME_CLUB_ID:
+        abort(400)
+    result = {
+        'club_name': select_club_name,
+        'club_id': MAP_CLUB_NAME_CLUB_ID[select_club_name]
+    }
+    return json.dumps(result), 200, {'Content-Type': 'application/json; charset=utf-8'}
 
 
 @app.route("/api/organismes", methods=['GET', 'OPTIONS'])
