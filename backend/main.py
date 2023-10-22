@@ -132,8 +132,8 @@ def list_divisions():
     return format_response(response)
 
 
-@app.route("/api/equipes", methods=['GET', 'OPTIONS'])
-def list_equipes():
+@app.route("/api/teams", methods=['GET', 'OPTIONS'])
+def list_teams():
     club_id = request.args.get("club_id", "")
     if not club_id:
         abort(400)

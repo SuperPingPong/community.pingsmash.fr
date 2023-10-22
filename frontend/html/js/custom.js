@@ -1,3 +1,60 @@
+function search() {
+    const input = $('#search-input');
+    const value = input.val();
+    // var surname = value.split(" ")[0];
+    // var name = value.split(" ")[1] || "";
+    var club_name = value;
+    const result = $('#result');
+    result.hide();
+    // $('#matchs').html('');
+    $.ajax({
+      url: "/api/club/search",
+      data: {
+        club_name: club_name,
+      },
+      type: "GET",
+      success: function(clubs) {
+        const suggestions = $('#suggestions');
+        // const result = $('#result');
+        suggestions.html("");
+        for (const club of clubs) {
+          const div = $('<div>').html(club.club_name);
+          div.click(function() {
+            input.val(club.club_name);
+            // save it to localstorage to pre reload on reload
+            localStorage.setItem('club_name', club.club_name)
+            suggestions.hide();
+            const club_id = club.club_id
+            $.ajax({
+              url: "/api/teams",
+              data: {
+                club_id: club_id,
+              },
+              type: "GET",
+              success: function(teams) {
+                console.log(teams)
+                compute_matchs_select();
+              }
+            });
+          });
+          suggestions.append(div);
+        }
+        if (clubs.length === 0) {
+          suggestions.hide();
+        } else {
+          suggestions.show();
+        }
+      }
+    });
+}
+
+function compute_matchs_select() {
+  const input = $('#search-input');
+  const club_name = input.val();
+  console.log(club_name)
+}
+
+
 $(document).ready(function() {
 
   // $('.multiselect').multiselect();
@@ -7,6 +64,29 @@ $(document).ready(function() {
     maxHeight: 200,
   });
 
+  // Fetch club_name value from localStorage
+  const club_name = localStorage.getItem('club_name')
+  const input = $('#search-input');
+  input.val(club_name);
+
+  compute_matchs_select();
+
+  // Get the form element
+  const searchForm = document.getElementById("search-community");
+  // Add an event listener to the form
+  searchForm.addEventListener("submit", function(event) {
+    // Prevent the default behavior of the browser
+    event.preventDefault();
+  });
+
+  document.querySelector('input').addEventListener('keyup', function(event) {
+      if (event.key === 'Enter') {
+          event.preventDefault();
+          document.activeElement.blur();
+      }
+  });
+
+  // TODO: remove below if not needed
   var paginationTop = $('#pagination-top');
   var paginationBottom = $('#pagination-bottom');
   paginationTop.hide();
