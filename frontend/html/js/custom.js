@@ -397,6 +397,19 @@ async function display_rencontre() {
       });
       // console.log(resultTeam)
 
+      // Check if score system is 1-0 or 2-1
+      // Loop over all matchs to see if 2 exists
+      let scoreWin;
+      const hasMatchWithTwoPoints = resultTeam.liste.partie.some(item => {
+          return item.scorea === "2" || item.scoreb === "2";
+      });
+      if (hasMatchWithTwoPoints) {
+        scoreWin = '2';
+      } else {
+        scoreWin = '1';
+      }
+
+
       const emoji = mapResultsToEmoji(team);
       const colDiv = $(`
         <div class="col-sm-4" style="font-size: 0.9rem"></div>
@@ -423,8 +436,8 @@ async function display_rencontre() {
       resultTeam.liste.partie.forEach(match => {
           colDiv.append(`
             <div style="">
-              ${match.ja === null ? `<span><i style="color: red !important">**ABSENT**</i></span> <b>0 - ` : `<span style="color: ${match.scorea === '2' ? 'green': 'red'}">${match.ja}</span> <b>${match.scorea} - `}
-              ${match.jb === null ? ` 0</b> <span><i style="color: red !important">**ABSENT**</i></span>` : `${match.scoreb}</b> <span style="color: ${match.scoreb === '2' ? 'green': 'red'}">${match.jb}</span>`}
+              ${match.ja === null ? `<span><i style="color: red !important">**ABSENT**</i></span> <b>0 - ` : `<span style="color: ${match.scorea === scoreWin ? 'green': 'red'}">${match.ja}</span> <b>${match.scorea} - `}
+              ${match.jb === null ? ` 0</b> <span><i style="color: red !important">**ABSENT**</i></span>` : `${match.scoreb}</b> <span style="color: ${match.scoreb === scoreWin ? 'green': 'red'}">${match.jb}</span>`}
               ${(match.ja !== null && match.jb !== null) ? `<span style="color: grey"> (${match.detail})</span>` : ''}
               <br>
             </div>
