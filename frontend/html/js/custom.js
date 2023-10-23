@@ -219,7 +219,7 @@ async function display_rencontre() {
     method: 'GET',
   });
 
-  let filteredIndex=0;
+  let filteredIndexGlobal=0;
   let rowDiv = null;
   const resultsDiv = $('#results');
   resultsDiv.empty(); // Clear previous content
@@ -281,12 +281,12 @@ async function display_rencontre() {
 
     // Display the results in a div
     // console.log(finalFilteredTourList)
-    // console.log(filteredIndex, team)
+    // console.log(filteredIndexGlobal, team)
     const teamResults = finalFilteredTourList.map((team) => {
       const lineResult = [];
       // console.log(rowDiv)
-      // console.log(filteredIndex)
-      if (filteredIndex % 3 === 0) {
+      // console.log(filteredIndexGlobal)
+      if (filteredIndexGlobal % 3 === 0) {
         // If it's a multiple of 3, create a new row
         if (rowDiv !== null) {
           lineResult.push('</div>'); // Close the previous row
@@ -304,15 +304,15 @@ async function display_rencontre() {
         <br>${emoji} ${team.equa} - ${team.equb} | <b>${team.scorea}-${team.scoreb}</b>
       `);
       rowDiv.append(colDiv); // Append the column to the current row
-      filteredIndex += 1;
+      filteredIndexGlobal += 1;
 
-      if (filteredIndex === finalFilteredTourList.length) {
+      if (filteredIndexGlobal === finalFilteredTourList.length) {
         lineResult.push(rowDiv);
       }
       return lineResult;
 
     });
-    filteredIndex += 1;
+    filteredIndexGlobal += 1;
   };
   resultsDiv.append(`
     <hr>
@@ -324,6 +324,9 @@ async function display_rencontre() {
        🏓 Détails des matchs 🏓
     </span>
   `)
+
+  let filteredIndexDetails=0;
+  rowDiv = null;
   for (const team of teams) {
     var libdivision = team.libdivision
     libdivision = libdivision.replace(/phase /gi, 'P');
@@ -365,21 +368,19 @@ async function display_rencontre() {
       continue
     }
 
-    console.log(finalFilteredTourList);
-
-    /*
+    // console.log(finalFilteredTourList);
 
     for (const team of finalFilteredTourList) {
       const emoji = mapResultsToEmoji(team);
-      console.log(`Team: ${team.equa} - ${team.equb} | Score: ${team.scorea}-${team.scoreb} | Emoji: ${emoji}`);
+      // console.log(`Team: ${team.equa} - ${team.equb} | Score: ${team.scorea}-${team.scoreb} | Emoji: ${emoji}`);
     }
 
     // Display the results in a div
-    console.log(finalFilteredTourList)
-    const teamResults = finalFilteredTourList.map((team) => {
+    // console.log(finalFilteredTourList)
+    const teamResults = finalFilteredTourList.map(async (team) => {
 
       const lineResult = [];
-      if (filteredIndex % 3 === 0) {
+      if (filteredIndexDetails % 3 === 0) {
         // If it's a multiple of 3, create a new row
         if (rowDiv !== null) {
           lineResult.push('</div>'); // Close the previous row
@@ -388,20 +389,62 @@ async function display_rencontre() {
         resultsDiv.append(rowDiv)
       }
 
-      const emoji = mapResultsToEmoji(team);
-      const colDiv = $('<div class="col-sm-4" style="font-size: 0.9rem"></div>'); // Create a column element
-      colDiv.html(`${emoji} ${team.equa} - ${team.equb} | <b>${team.scorea}-${team.scoreb}</b>`);
-      rowDiv.append(colDiv); // Append the column to the current row
-      filteredIndex += 1;
+      console.log(team)
+      const lien = team.lien
+      var resultTeam = await $.ajax({
+        url: '/api/result_chp_renc?' + team.lien,
+        method: 'GET',
+      });
+      console.log(resultTeam)
+      console.log('---')
 
-      if (filteredIndex === finalFilteredTourList.length) {
+      const emoji = mapResultsToEmoji(team);
+      const colDiv = $(`
+        <div class="col-sm-4" style="font-size: 0.9rem"></div>
+      `); // Create a column element
+      colDiv.html(`
+        <span style='color: grey'>${libdivision}</span>
+        <br>${emoji} ${team.equa} - ${team.equb} | <b>${team.scorea}-${team.scoreb}</b>
+        <hr>
+      `);
+
+      resultTeam.liste.joueur.forEach(player => {
+          colDiv.append(`
+            <div style="text-align: center">
+              ${player.xja} <b>${player.xca}</b> | ${player.xjb} <b>${player.xcb}</b><br>
+            </div>
+          `);
+      });
+
+      colDiv.append(`
+        <hr>
+      `);
+
+      // Loop through the "partie" array and display match results
+      resultTeam.liste.partie.forEach(match => {
+          colDiv.append(`
+            <div style="">
+              <span style="color: ${match.scorea === '2' ? 'green': 'red'}">${match.ja}</span> <b>${match.scorea} - ${match.scoreb}</b> <span style="color: ${match.scoreb === '2' ? 'green': 'red'}">${match.jb}</span>
+              <span style="color: grey"> (${match.detail})</span>
+              <br>
+            </div>
+          `);
+      });
+
+      colDiv.append(`
+        <hr>
+      `);
+
+      rowDiv.append(colDiv); // Append the column to the current row
+      filteredIndexDetails += 1;
+
+      if (filteredIndexDetails === finalFilteredTourList.length) {
         lineResult.push(rowDiv);
       }
       return lineResult;
 
     });
-    filteredIndex += 1;
-    */
+    filteredIndexDetails += 1;
   };
   resultsDiv.append(`
     <hr>
