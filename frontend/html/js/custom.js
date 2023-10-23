@@ -301,7 +301,7 @@ async function display_rencontre() {
       `); // Create a column element
       colDiv.html(`
         <span style='color: grey'>${libdivision}</span>
-        <br>${emoji} ${team.equa} - ${team.equb} | <b>${team.scorea}-${team.scoreb}</b>
+        <br>${emoji} ${team.equa === null ? "" : team.equa} - ${team.equb === null ? "" : team.equb}${(team.scorea !== null && team.scoreb !== null) ? ` | <b>${team.scorea}-${team.scoreb}</b>` : ""}
       `);
       rowDiv.append(colDiv); // Append the column to the current row
       filteredIndexGlobal += 1;
@@ -389,14 +389,13 @@ async function display_rencontre() {
         resultsDiv.append(rowDiv)
       }
 
-      console.log(team)
+      // console.log(team)
       const lien = team.lien
       var resultTeam = await $.ajax({
         url: '/api/result_chp_renc?' + team.lien,
         method: 'GET',
       });
-      console.log(resultTeam)
-      console.log('---')
+      // console.log(resultTeam)
 
       const emoji = mapResultsToEmoji(team);
       const colDiv = $(`
@@ -411,7 +410,7 @@ async function display_rencontre() {
       resultTeam.liste.joueur.forEach(player => {
           colDiv.append(`
             <div style="text-align: center">
-              ${player.xja} <b>${player.xca}</b> | ${player.xjb} <b>${player.xcb}</b><br>
+              ${player.xja === null ? "<i style='color: #212529 !important'>**ABSENT**</i>" : player.xja}<b>${player.xca === null ? "" : ` ${player.xca}`}</b> | ${player.xjb === null ? "<i style='color: #212529 !important'>**ABSENT**</i>" : player.xjb}<b>${player.xcb === null ? "" : ` ${player.xcb}`}</b><br>
             </div>
           `);
       });
@@ -424,8 +423,9 @@ async function display_rencontre() {
       resultTeam.liste.partie.forEach(match => {
           colDiv.append(`
             <div style="">
-              <span style="color: ${match.scorea === '2' ? 'green': 'red'}">${match.ja}</span> <b>${match.scorea} - ${match.scoreb}</b> <span style="color: ${match.scoreb === '2' ? 'green': 'red'}">${match.jb}</span>
-              <span style="color: grey"> (${match.detail})</span>
+              ${match.ja === null ? `<span><i style="color: red !important">**ABSENT**</i></span> <b>0 - ` : `<span style="color: ${match.scorea === '2' ? 'green': 'red'}">${match.ja}</span> <b>${match.scorea} - `}
+              ${match.jb === null ? ` 0</b> <span><i style="color: red !important">**ABSENT**</i></span>` : `${match.scoreb}</b> <span style="color: ${match.scoreb === '2' ? 'green': 'red'}">${match.jb}</span>`}
+              ${(match.ja !== null && match.jb !== null) ? `<span style="color: grey"> (${match.detail})</span>` : ''}
               <br>
             </div>
           `);
