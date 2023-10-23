@@ -3,6 +3,7 @@ from flask_cors import CORS
 
 from os import environ
 import json
+import re
 import requests
 import urllib3
 
@@ -139,6 +140,8 @@ def list_teams():
         abort(400)
     url = f"https://fftt.dafunker.com/v1/club/{club_id}/equipes"
     response = session.get(url, params={})
+    result = json.loads(response.content)
+    sorted_result = sorted(result, key=lambda x: int(re.findall(r'(\d+)', x["libequipe"])[0]))
     """
     [
       ...
@@ -153,7 +156,7 @@ def list_teams():
       }
       ...
     """
-    return format_response(response)
+    return json.dumps(sorted_result), response.status_code, {'Content-Type': 'application/json; charset=utf-8'}
 
 
 @app.route("/api/team/results", methods=['GET', 'OPTIONS'])
