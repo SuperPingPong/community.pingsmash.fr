@@ -1,4 +1,4 @@
-<html>
+<!DOCTYPE html>
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -10,9 +10,6 @@
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@4.3.1/dist/css/bootstrap.min.css"
           integrity="sha384-ggOyR0iXCbMQv3Xipma34MD+dH/1fQ784/j6cY/iJTQUOhcWr7x9JvoRxT2MZw1T" crossorigin="anonymous">
     <link rel="canonical" href="https://community.pingsmash.fr">
-    <link rel="stylesheet"
-          href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap-multiselect/0.9.16/css/bootstrap-multiselect.css"/>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/bootstrap-multiselect/0.9.16/js/bootstrap-multiselect.min.js"></script>
 
     <link rel="stylesheet" type="text/css" href="/css/style.css">
     <link rel="stylesheet" type="text/css" href="/css/custom.css">
@@ -78,15 +75,18 @@
                                 <div class="col-sm-6">
                                     <div class="field padding-top--24 padding-bottom--24">
                                         <label for="search-input">Nom du club</label>
-                                        <input class="regular" type="text" id="search-input" onkeyup="search()">
+                                        <input autocomplete="off" class="regular" type="text" id="search-input" onkeyup="search()">
                                     </div>
                                     <div class="field suggestions" id="suggestions"></div>
                                 </div>
                                 <div class="col-sm-6">
                                     <div class="field padding-top--24 padding-bottom--24">
                                         <label for="type">Choix de la rencontre:</label>
-                                        <select id="type" name="type[]" class="multiselect" multiple>
+                                        <select id="type" name="type[]" class="" disabled>
+                                            <option value="" selected>Veuillez choisir le nom du club</option>
+                                            <!--
                                             <option value="" selected>Chargement...</option>
+                                            -->
                                         </select>
                                     </div>
                                 </div>
@@ -96,12 +96,12 @@
                                 <div class="col-sm-6 text-right">
                                 </div>
                                 <div class="col-sm-3">
-                                    <button type="submit" class="btn btn-primary"
-                                            style="button:hover: rgb(64, 85, 172)">Rechercher
+                                    <button type="submit" class="btn btn-primary" disabled
+                                            style="button:hover: rgb(64, 85, 172); cursor: not-allowed;">Rechercher
                                     </button>
                                 </div>
                                 <div class="col-sm-3">
-                                    <button type="reset" class="btn btn-secondary mr-2" style="box-shadow: unset">
+                                    <button id="resetButton" type="reset" class="btn btn-secondary mr-2" style="box-shadow: unset">
                                         Réinitialiser
                                     </button>
                                 </div>
@@ -109,17 +109,7 @@
 
                             <hr>
 
-                            <div class="pagination-container">
-                                <ul id="pagination-top" class="pagination justify-content-center">
-                                </ul>
-                            </div>
-
                             <div id="results"></div>
-
-                            <div class="pagination-container">
-                                <ul id="pagination-bottom" class="pagination justify-content-center">
-                                </ul>
-                            </div>
 
                         </form>
                     </div>

@@ -1,75 +1,318 @@
-function search() {
-    const input = $('#search-input');
-    const value = input.val();
-    // var surname = value.split(" ")[0];
-    // var name = value.split(" ")[1] || "";
-    var club_name = value;
-    const result = $('#result');
-    result.hide();
-    // $('#matchs').html('');
-    $.ajax({
-      url: "/api/club/search",
-      data: {
-        club_name: club_name,
-      },
-      type: "GET",
-      success: function(clubs) {
-        const suggestions = $('#suggestions');
-        // const result = $('#result');
-        suggestions.html("");
-        for (const club of clubs) {
-          const div = $('<div>').html(club.club_name);
-          div.click(function() {
-            input.val(club.club_name);
-            // save it to localstorage to pre reload on reload
-            localStorage.setItem('club_name', club.club_name)
-            suggestions.hide();
-            const club_id = club.club_id
-            $.ajax({
-              url: "/api/teams",
-              data: {
-                club_id: club_id,
-              },
-              type: "GET",
-              success: function(teams) {
-                console.log(teams)
-                compute_matchs_select();
-              }
-            });
-          });
-          suggestions.append(div);
-        }
-        if (clubs.length === 0) {
-          suggestions.hide();
-        } else {
-          suggestions.show();
-        }
-      }
+const selectElement = document.getElementById('type');
+
+var ORGANISME_NATIONAL_IDS = ['1'];
+var ORGANISME_REGIONAL_IDS;
+var ORGANISME_DEPARTEMENTAL_IDS;
+var RENCONTRES;
+
+var storedClubName = localStorage.getItem('CLUB_NAME');
+var storedClubId = localStorage.getItem('CLUB_ID');
+var storedRegionalIds = localStorage.getItem('ORGANISME_REGIONAL_IDS');
+var storedDepartementalIds = localStorage.getItem('ORGANISME_DEPARTEMENTAL_IDS');
+var storedRencontres = localStorage.getItem('RENCONTRES');
+var storedRencontreChoice = localStorage.getItem('RENCONTRE_CHOICE');
+
+async function init_organismes_vars() {
+  if (storedRegionalIds && storedDepartementalIds) {
+      ORGANISME_REGIONAL_IDS = JSON.parse(storedRegionalIds);
+      ORGANISME_DEPARTEMENTAL_IDS = JSON.parse(storedDepartementalIds);
+  } else {
+    var ORGANISME_NATIONAL_IDS = ['1'];
+    await $.ajax({
+      url: '/api/organismes?type=L',
+      method: 'GET',
+    }).then(function(data) {
+      const ORGANISME_REGIONAL = data.liste.organisme;
+      ORGANISME_REGIONAL_IDS = ORGANISME_REGIONAL.map(item => item.id);
+      localStorage.setItem('ORGANISME_REGIONAL_IDS', JSON.stringify(ORGANISME_REGIONAL_IDS));
+    })
+    await $.ajax({
+      url: '/api/organismes?type=D',
+      method: 'GET',
+    }).then(function(data) {
+      const ORGANISME_DEPARTEMENTAL = data.liste.organisme;
+      ORGANISME_DEPARTEMENTAL_IDS = ORGANISME_DEPARTEMENTAL.map(item => item.id);
+      localStorage.setItem('ORGANISME_DEPARTEMENTAL_IDS', JSON.stringify(ORGANISME_DEPARTEMENTAL_IDS));
+    })
+  }
+}
+
+async function fetchResults(clubId) {
+  if (storedRencontres) {
+      RENCONTRES = JSON.parse(storedRencontres);
+  } else {
+    RENCONTRES = [];
+    var teams = await $.ajax({
+      url: '/api/teams?club_id=' + clubId,
+      method: 'GET',
     });
+
+    await Promise.all(teams.map(async function (team) {
+      var division = team.liendivision;
+      var match = division.match(/organisme_pere=(\d+)/);
+      var organisme_id = match[1];
+
+      var group;
+      if (ORGANISME_NATIONAL_IDS.includes(organisme_id)) {
+          group = 'National';
+      } else if (ORGANISME_REGIONAL_IDS.includes(organisme_id)) {
+          group = 'Régional';
+      } else if (ORGANISME_DEPARTEMENTAL_IDS.includes(organisme_id)) {
+          group = 'Départemental';
+      } else {
+          throw new Error('Unknown group for organisme_id=' + organisme_id);
+      }
+
+      // Perform a GET request to retrieve team results
+      var resultData = await $.ajax({
+        url: '/api/team/results?' + division,
+        method: 'GET',
+      });
+
+      var tourList = resultData.liste.tour;
+      // console.log(JSON.stringify(tourList, null, 4));
+      // var rencontres = Array.from(new Set(tourList.map(item => item.dateprevue)));
+      var now = new Date(); // Get the current date
+      var rencontres = Array.from(new Set(tourList.map(item => item.dateprevue)))
+        .filter(date => {
+          var dateParts = date.split('/');
+          var dateprevue = new Date(dateParts[2], dateParts[1] - 1, dateParts[0]); // Assuming dateprevue is in the format 'dd/mm/yyyy'
+          // Check if dateprevue is earlier than or equal to today (ignoring time)
+          return dateprevue <= now || dateprevue.toDateString() === now.toDateString();
+        });
+
+      /*
+      var dateList = rencontres.map(date => new Date(date.split('/').reverse().join('/')));
+      dateList.sort();
+      var formattedDates = dateList.map(date => date.toLocaleDateString('fr-FR'));
+      */
+
+      rencontres.forEach(function(date) {
+          var field = group + ' - ' + date;
+          if (!RENCONTRES.includes(field)) {
+              RENCONTRES.push(field);
+          }
+      });
+    }));
+
+    // Output the RENCONTRES array as JSON
+    RENCONTRES.sort(function(a, b) {
+      var order = { "National": 1, "Régional": 2, "Départemental": 3 };
+      return order[a.split(" - ")[0]] - order[b.split(" - ")[0]];
+    });
+    localStorage.setItem('RENCONTRES', JSON.stringify(RENCONTRES));
+    // console.log(JSON.stringify(RENCONTRES, null, 4));
+  }
+  await updateBoxShadow();
+  await updateSelectOptions();
+}
+
+// Function to update the box-shadow
+async function updateBoxShadow() {
+  storedRencontres = localStorage.getItem('RENCONTRES');
+  if (storedRencontres) {
+    selectElement.disabled = false;
+    selectElement.style.boxShadow = '';
+  } else {
+    selectElement.disabled = true;
+    selectElement.style.boxShadow = '0 0 0 2px rgba(128, 128, 128, 0.56)';
+  }
+}
+
+async function updateSelectOptions() {
+  storedRencontres = localStorage.getItem('RENCONTRES');
+  RENCONTRES = JSON.parse(storedRencontres);
+  var select = $('#type');
+  // $('#type option:selected').remove();
+  select.empty();
+  var option = $('<option>', {
+    value: 'Veuillez sélectionner une rencontre',
+    text: 'Veuillez sélectionner une rencontre'
+  });
+  select.append(option);
+  // $("button[type=submit]").prop("disabled", true);
+
+  RENCONTRES.forEach(function (meeting) {
+    var option = $('<option>', {
+      value: meeting,
+      text: meeting
+    });
+
+    // Add a click event to the option
+    option.on('click', async function () {
+      localStorage.setItem('RENCONTRE_CHOICE', $(this).val());
+      await display_rencontre();
+    });
+
+    select.append(option);
+  });
+}
+
+function mapResultsToEmoji(team) {
+  const scoreA = parseInt(team.scorea);
+  const scoreB = parseInt(team.scoreb);
+
+  if (scoreA > scoreB) {
+    return '🎉'; // Emoji for win
+  } else if (scoreA < scoreB) {
+    return '😞'; // Emoji for loss
+  } else {
+    return '😐'; // Emoji for draw
+  }
+}
+
+async function display_rencontre() {
+  const selectedValue = $("#type option:selected").val();
+  const regex = /([^-\s]+) - (\d{2}\/\d{2}\/\d{4})/;
+  const matchTextValue = selectedValue.match(regex);
+
+  const targetGroup = matchTextValue[1];
+  const targetDate = matchTextValue[2];
+
+  console.log("Group:", targetGroup);
+  console.log("Target Date:", targetDate);
+
+  // RENCONTRES = [];
+  storedClubId = localStorage.getItem('CLUB_ID');
+  var teams = await $.ajax({
+    url: '/api/teams?club_id=' + storedClubId,
+    method: 'GET',
+  });
+
+  const resultsDiv = $('#results');
+  resultsDiv.empty(); // Clear previous content
+
+  await Promise.all(teams.map(async function (team) {
+    var division = team.liendivision;
+    var matchDivision = division.match(/organisme_pere=(\d+)/);
+    var organisme_id = matchDivision[1];
+
+    var group;
+    if (ORGANISME_NATIONAL_IDS.includes(organisme_id)) {
+        group = 'National';
+    } else if (ORGANISME_REGIONAL_IDS.includes(organisme_id)) {
+        group = 'Régional';
+    } else if (ORGANISME_DEPARTEMENTAL_IDS.includes(organisme_id)) {
+        group = 'Départemental';
+    }
+
+    if (group !== targetGroup) {
+      return
+    }
+
+    // Perform a GET request to retrieve team results
+    var resultData = await $.ajax({
+      url: '/api/team/results?' + division,
+      method: 'GET',
+    });
+
+    var tourList = resultData.liste.tour;
+    var filteredTourList = tourList.filter(function (item) {
+      return item.dateprevue === targetDate;
+    });
+    var finalFilteredTourList = filteredTourList.filter(function (item) {
+      return item.lien.includes(storedClubId);
+    });
+    /*
+    console.log(targetDate)
+    console.log(targetGroup)
+    console.log(team.libequipe)
+    console.log(JSON.stringify(finalFilteredTourList, null, 4));
+    console.log('---')
+    // var rencontres = Array.from(new Set(tourList.map(item => item.dateprevue)));
+    */
+
+    for (const team of finalFilteredTourList) {
+      const emoji = mapResultsToEmoji(team);
+      console.log(`Team: ${team.equa} - ${team.equb} | Score: ${team.scorea}-${team.scoreb} | Emoji: ${emoji}`);
+    }
+
+    // Display the results in a div
+    const teamResults = finalFilteredTourList.map((team) => {
+      const emoji = mapResultsToEmoji(team);
+      return `${emoji} ${team.equa} - ${team.equb} | Score: ${team.scorea}-${team.scoreb}<br />`;
+    });
+    resultsDiv.append(teamResults.join("<br>"));
+
+  }));
+}
+
+async function search() {
+  const input = $('#search-input');
+  const value = input.val();
+  var club_name = value;
+  const result = $('#result');
+  result.hide();
+
+  const clubs = await $.ajax({
+    url: "/api/club/search",
+    data: {
+      club_name: club_name,
+    },
+    type: "GET",
+  });
+
+  const suggestions = $('#suggestions');
+  suggestions.html("");
+
+  for (const club of clubs) {
+    const div = $('<div>').html(club.club_name);
+    div.click(async function () {
+      input.val(club.club_name);
+      localStorage.setItem('CLUB_NAME', club.club_name);
+      localStorage.setItem('CLUB_ID', club.club_id);
+      suggestions.hide();
+      const club_id = club.club_id;
+      const teams = await $.ajax({
+        url: "/api/teams",
+        data: {
+          club_id: club_id,
+        },
+        type: "GET",
+      });
+      // console.log(teams);
+      compute_matchs_select();
+      await fetchResults(club_id);
+    });
+    suggestions.append(div);
+  }
+
+  if (clubs.length === 0) {
+    suggestions.hide();
+  } else {
+    suggestions.show();
+  }
 }
 
 function compute_matchs_select() {
   const input = $('#search-input');
   const club_name = input.val();
-  console.log(club_name)
+  // console.log(club_name)
 }
 
+async function init2() {
+  updateBoxShadow();
+  selectElement.addEventListener('change', updateBoxShadow);
 
-$(document).ready(function() {
+  if (storedClubId) {
+    await fetchResults(storedClubId);
+    // console.log(JSON.stringify(RENCONTRES, null, 4));
+  }
 
-  // $('.multiselect').multiselect();
-
-  $(".multiselect").multiselect({
-    includeSelectAllOption: true,
-    maxHeight: 200,
-  });
-
-  // Fetch club_name value from localStorage
-  const club_name = localStorage.getItem('club_name')
   const input = $('#search-input');
-  input.val(club_name);
+  input.val(storedClubName);
 
   compute_matchs_select();
+
+  if (storedRencontreChoice) {
+    for (const option of selectElement.options) {
+      if (option.value === storedRencontreChoice) {
+        option.selected = true;
+        break;
+      }
+    }
+    $("button[type=submit]").prop("disabled", false).css("cursor", "pointer");
+  }
 
   // Get the form element
   const searchForm = document.getElementById("search-community");
@@ -86,249 +329,46 @@ $(document).ready(function() {
       }
   });
 
-  // TODO: remove below if not needed
-  var paginationTop = $('#pagination-top');
-  var paginationBottom = $('#pagination-bottom');
-  paginationTop.hide();
-  paginationBottom.hide();
-
-  // Check if there are any stored values in local storage
-  if (localStorage.getItem('searchFormData')) {
-    // Retrieve the stored values and parse them as a JSON object
-    const searchFormData = JSON.parse(localStorage.getItem('searchFormData'));
-
-    // Loop through the form fields and set their values to the stored values
-    for (const field in searchFormData) {
-      const element = document.querySelector(`[name="${field}"]`);
-      if (element) {
-        if (element.type === 'select-multiple') {
-          // Check if default selected should be removed
-          let removeSelectedAll = false;
-          for (const option of element.options) {
-            if (searchFormData[field].includes(option.value)) {
-              removeSelectedAll = true;
-            }
-          }
-          for (const option of element.options) {
-            if (removeSelectedAll === true) {
-              option.selected = false;
-            }
-          }
-          $(`select[name="${field}"]`).multiselect('refresh');
-          // For select fields, loop through the options and set the selected attribute
-          for (const option of element.options) {
-            if (searchFormData[field].includes(option.value)) {
-              option.selected = true;
-              // const button = document.querySelector(`button[title="${option.text}"]`);
-              // button.classList.add("active");
-              // const input = button.querySelector('input[type="checkbox"]');
-              // input.checked = true;
-              $(`select[name="${field}"]`).multiselect('refresh');
-            }
-          }
-        } else {
-          // For other fields, set the value attribute
-          element.value = searchFormData[field];
-        }
-      }
-    }
-  }
-  // Listen for a form submission
-  $('#search-tournaments').on('submit', (event) => {
-    // Prevent the default form submission behavior
-    event.preventDefault();
-
-    // Get the form data as a JSON object
-    const formData = {};
-    // Loop through all form elements
-    $('form :input').each(function() {
-      const element = $(this);
-      if (element.attr('name')) {
-        if (element.is('select[multiple]')) {
-          // For select fields, loop through the options and add their values to an array
-          const selectedOptions = [];
-          $('option:selected', element).each(function() {
-            selectedOptions.push($(this).val());
-          });
-          formData[element.attr('name')] = selectedOptions;
-        } else {
-          // For other fields, add the value to the JSON object
-          formData[element.attr('name')] = element.val();
-        }
-      }
-    });
-    localStorage.setItem('searchFormData', JSON.stringify(formData));
-
-    // Get the form data and convert it to a JSON string
-    var formDataJson = JSON.stringify($(event.currentTarget).serializeArray());
-
-    // Make the AJAX request
-    var apiKey = "AIzaSyBKvYYdqetSVRFVCoY0HIwteFjVGfE1AeM";
-
-    // Get the #results div
-    const resultsDiv = $('#results');
-    resultsDiv.html('');
-    paginationTop.html('');
-    paginationBottom.html('');
-    const pageSize = 6;
-
-    // Get the position of the button element
-    var buttonOffset = $("button[type='submit']").offset().top;
-
-    $.ajax({
-      type: 'POST',
-      url: '/api/search',
-      data: formDataJson,
-      contentType: 'application/json',
-      success: function(response) {
-        // Handle the successful response here
-        console.log(response);
-
-        const totalItems = response['hydra:totalItems'];
-        const totalPages = Math.ceil(totalItems / pageSize);
-
-        // Alternatively, you can use the .forEach() method:
-        let elemList = [paginationTop, paginationBottom];
-        let pageValue = $('input[name="page"]:last').val();
-        if (pageValue === undefined) {
-          pageValue = 1
-        }
-        $(elemList).each(function(index, element) {
-           var html = '';
-           for (var i = 1; i <= totalPages; i++) {
-              var active = (i == pageValue) ? 'active' : ''; // Add 'active' class to first item
-              html += '<li class="page-item ' + active + '"><a class="page-link" data-page="' + i + '">' + i + '</a></li>';
-           }
-
-           // Add the HTML to the current element
-           $(element).append(html);
-
-           // Add click event listener to each page item
-           $(element).find('.page-link').on('click', function(event) {
-              event.preventDefault();
-              var page = $(this).data('page');
-              $('form').append('<input type="hidden" name="page" value="' + page + '">');
-              $('form').submit();
-
-              $("html, body").animate({
-                scrollTop: buttonOffset
-              }, 1000);
-           });
-
-           element.show();
-        });
-
-        // Get user's origin location from localStorage
-        const origin = formData['location'];
-        // Loop through the hydra:member list
-        response['hydra:member'].forEach(function(item) {
-          // Get user's destination location from item
-          let destination = ''
-          if (item.address.streetAddress != null) {
-            destination += item.address.streetAddress + ', '
-          }
-          if (item.address.postalCode != null) {
-            destination += item.address.postalCode + ', '
-          }
-          if (item.address.addressLocality != null) {
-            destination += item.address.addressLocality + ', '
-          }
-          if (item.address.addressRegion  != null) {
-            destination += item.address.addressRegion
-          }
-          // const destination = item.address.streetAddress + ' ' + item.address.postalCode;
-          // Create Google Maps Directions API URL
-          const mapsUrl = "https://www.google.com/maps/embed/v1/directions?key=" + apiKey + "&origin=" + encodeURIComponent(origin) + "&destination=" + encodeURIComponent(destination) + "&mode=driving";
-
-          // Add the iframe and horizontal line to the results div
-          const row = $('<div>').addClass('row');
-          const col1 = $('<div>').addClass('col-sm-5');
-          const card = $('<div>').addClass('card');
-          const cardBody = $('<div>').addClass('card-body');
-          const title = $('<h5>').addClass('card-title').text(item.name);
-          const clubName = $('<p>').addClass('card-text').text(item.club.name);
-
-          let startDate = new Date(item.startDate)
-          let formattedStartDate = startDate.getFullYear() + '-' + (startDate.getMonth() + 1).toString().padStart(2, '0') + '-' + startDate.getDate().toString().padStart(2, '0')
-          let endDate = new Date(item.endDate)
-          let formattedEndDate = endDate.getFullYear() + '-' + (endDate.getMonth() + 1).toString().padStart(2, '0') + '-' + endDate.getDate().toString().padStart(2, '0')
-          const dateRange = $('<p>').addClass('card-text').text('Dates: ' + formattedStartDate + ' - ' + formattedEndDate);
-
-          const address = $('<p>').addClass('card-text').text(destination);
-          const contact = $('<p>').addClass('card-text').text('Organisateur: ' + item.contacts[0].givenName + ' ' + item.contacts[0].familyName);
-          const email = $('<p>').addClass('card-text').text('Contact: ' + item.contacts[0].email);
-          const rule = $('<p class="card-text">Règlement: <a style="text-decoration: underline" href="' + item.rules.url + '">Afficher le règlement</a></p>')
-
-          const card2 = $('<div>').addClass('card');
-          const cardBody2 = $('<div>').addClass('card-body');
-          // const title2 = $('<h5>').addClass('card-title').text('New Card Title');
-          // const description2 = $('<p>').addClass('card-text').text('New Card Description');
-
-          let content2_html = '<p class="card-text">';
-          if (item.tables.length > 0) {
-            let tableDate = new Date(item.tables[0].date);
-            var formattedTableDateHead = tableDate.getFullYear() + '-' + (tableDate.getMonth() + 1).toString().padStart(2, '0') + '-' + tableDate.getDate().toString().padStart(2, '0')
-            content2_html += '<ul aria-label="">'
-          } else {
-            var formattedTableDateHead = ''
-            content2_html += '<ul>'
-          }
-
-          item.tables.forEach(function(table) {
-              let tableDate = new Date(table.date);
-              formattedTableDate = tableDate.getFullYear() + '-' + (tableDate.getMonth() + 1).toString().padStart(2, '0') + '-' + tableDate.getDate().toString().padStart(2, '0')
-
-              if (formattedTableDate != formattedTableDateHead) {
-                formattedTableDateHead = formattedTableDate;
-                content2_html += '</ul><ul aria-label="">';
-              }
-              content2_html += '<li>'
-              if (table.name != null) {
-                content2_html += table.name
-              }
-              if (table.description != null) {
-                content2_html += ' - ' + table.description
-              }
-              if (table.time != null) {
-                content2_html += ' - ' + table.time
-              }
-              if (table.fee != null) {
-                content2_html += ' (' + table.fee/100 + '€)'
-              }
-              content2_html += '</li>';
-          });
-          content2_html += '</ul></p>'
-          const content2 = content2_html;
-          // https://apiv2.fftt.com/api/files/181948/Re%CC%81glement%20Tournoi%202023.pdf
-
-          const col2 = $('<div>').addClass('col-sm-7');
-
-          // Create the iframe for the Google Maps directions
-          const iframe = $('<iframe>', {
-            src: mapsUrl,
-            frameborder: 0,
-            // height: 450,
-            // width: 600
-            width: '100%',
-            height: 450,
-          });
-
-          cardBody.append(title, clubName, dateRange, address, contact, email, rule);
-          // cardBody2.append(title2, description2);
-          cardBody2.append(content2);
-          card.append(cardBody);
-          card2.append(cardBody2);
-          col1.append(card, card2);
-          col2.append(iframe);
-          row.append(col1, col2);
-
-          resultsDiv.append(row, '<hr>');
-
-        });
-      },
-      error: function(xhr, status, error) {
-        // Handle the error here
-      }
-    });
+  $("button[type=submit]").on("click", async function(event) {
+    event.preventDefault(); // Prevent the default form submission
+    await display_rencontre();
   });
-});
+
+  document.getElementById('resetButton').addEventListener('click', function() {
+    localStorage.removeItem('CLUB_NAME');
+    localStorage.removeItem('CLUB_ID');
+    localStorage.removeItem('ORGANISME_REGIONAL_IDS');
+    localStorage.removeItem('ORGANISME_DEPARTEMENTAL_IDS');
+    localStorage.removeItem('RENCONTRES');
+    localStorage.removeItem('RENCONTRE_CHOICE');
+    /*
+    storedClubName = localStorage.getItem('CLUB_NAME');
+    storedClubId = localStorage.getItem('CLUB_ID');
+    storedRegionalIds = localStorage.getItem('ORGANISME_REGIONAL_IDS');
+    storedDepartementalIds = localStorage.getItem('ORGANISME_DEPARTEMENTAL_IDS');
+    storedRencontres = localStorage.getItem('RENCONTRES');
+    storedRencontreChoice = localStorage.getItem('RENCONTRE_CHOICE');
+    */
+    var select = $('#type');
+    // $('#type option:selected').remove();
+    select.empty();
+    var option = $('<option>', {
+      value: 'Veuillez choisir un nom de club',
+      text: 'Veuillez choisir un nom de club'
+    });
+    select.append(option);
+    updateBoxShadow();
+  });
+}
+
+
+async function init() {
+  await init_organismes_vars();
+  await init2();
+};
+
+// Listen for the pageshow event
+window.addEventListener('pageshow', init);
+
+// Call init function when the DOM is ready
+$(document).ready(init);

@@ -1,2 +1,3 @@
 *.json
 !map.json
+debug.py
