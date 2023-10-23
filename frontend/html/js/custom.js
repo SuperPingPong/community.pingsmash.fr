@@ -99,9 +99,6 @@ async function fetchResults(clubId) {
       let [categoryA, dateA] = a.split(" - ");
       let [categoryB, dateB] = b.split(" - ");
 
-      console.log(dateA)
-      console.log(dateB)
-
       // Create a new Date object with the components
       const [dayA, monthA, yearA] = dateA.split('/');
       dateA = new Date(`${yearA}-${monthA}-${dayA}`);
@@ -212,8 +209,8 @@ async function display_rencontre() {
   const targetGroup = matchTextValue[1];
   const targetDate = matchTextValue[2];
 
-  console.log("Group:", targetGroup);
-  console.log("Target Date:", targetDate);
+  // console.log("Group:", targetGroup);
+  // console.log("Target Date:", targetDate);
 
   // RENCONTRES = [];
   storedClubId = localStorage.getItem('CLUB_ID');
@@ -235,10 +232,10 @@ async function display_rencontre() {
   `)
 
   for (const team of teams) {
-    console.log(team)
+    // console.log(team)
     var libdivision = team.libdivision
     libdivision = libdivision.replace(/phase /gi, 'P');
-    console.log(libdivision)
+    // console.log(libdivision)
     var division = team.liendivision;
     var matchDivision = division.match(/organisme_pere=(\d+)/);
     var organisme_id = matchDivision[1];
@@ -274,14 +271,21 @@ async function display_rencontre() {
 
     for (const team of finalFilteredTourList) {
       const emoji = mapResultsToEmoji(team);
-      console.log(`Team: ${team.equa} - ${team.equb} | Score: ${team.scorea}-${team.scoreb} | Emoji: ${emoji}`);
+      // console.log(`Team: ${team.equa} - ${team.equb} | Score: ${team.scorea}-${team.scoreb} | Emoji: ${emoji}`);
+    }
+
+    // Ignore if no matchs for this team
+    if (finalFilteredTourList.length === 0) {
+      continue
     }
 
     // Display the results in a div
-    console.log(finalFilteredTourList)
+    // console.log(finalFilteredTourList)
+    // console.log(filteredIndex, team)
     const teamResults = finalFilteredTourList.map((team) => {
-
       const lineResult = [];
+      // console.log(rowDiv)
+      // console.log(filteredIndex)
       if (filteredIndex % 3 === 0) {
         // If it's a multiple of 3, create a new row
         if (rowDiv !== null) {
@@ -295,7 +299,10 @@ async function display_rencontre() {
       const colDiv = $(`
         <div class="col-sm-4" style="font-size: 0.9rem"></div>
       `); // Create a column element
-      colDiv.html(`${emoji} ${team.equa} - ${team.equb} | <b>${team.scorea}-${team.scoreb}</b>`);
+      colDiv.html(`
+        <span style='color: grey'>${libdivision}</span>
+        <br>${emoji} ${team.equa} - ${team.equb} | <b>${team.scorea}-${team.scoreb}</b>
+      `);
       rowDiv.append(colDiv); // Append the column to the current row
       filteredIndex += 1;
 
@@ -318,6 +325,8 @@ async function display_rencontre() {
     </span>
   `)
   for (const team of teams) {
+    var libdivision = team.libdivision
+    libdivision = libdivision.replace(/phase /gi, 'P');
     var division = team.liendivision;
     var matchDivision = division.match(/organisme_pere=(\d+)/);
     var organisme_id = matchDivision[1];
@@ -350,6 +359,11 @@ async function display_rencontre() {
     var finalFilteredTourList = filteredTourList.filter(function (item) {
       return item.lien.includes(storedClubId);
     });
+
+    // Ignore if no matchs for this team
+    if (finalFilteredTourList.length === 0) {
+      continue
+    }
 
     console.log(finalFilteredTourList);
 
@@ -429,6 +443,11 @@ async function search() {
       });
       // console.log(teams);
       compute_matchs_select();
+      // Reset rencontres compute on new search club
+      localStorage.removeItem('RENCONTRES');
+      localStorage.removeItem('RENCONTRE_CHOICE');
+      storedRencontres = localStorage.getItem('RENCONTRES');
+      storedRencontreChoice = localStorage.getItem('RENCONTRE_CHOICE');
       await fetchResults(club_id);
     });
     suggestions.append(div);
