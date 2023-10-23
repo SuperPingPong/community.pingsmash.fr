@@ -159,6 +159,8 @@ async function updateSelectOptions() {
     // Add a click event to the option
     option.on('click', async function () {
       localStorage.setItem('RENCONTRE_CHOICE', $(this).val());
+      const resultsDiv = $('#results');
+      resultsDiv.empty(); // Clear previous content
       // $("button[type=submit]").prop("disabled", false).css("cursor", "pointer");
       await display_rencontre();
     });
@@ -219,8 +221,6 @@ async function display_rencontre() {
     method: 'GET',
   });
 
-  let filteredIndexGlobal=0;
-  let rowDiv = null;
   const resultsDiv = $('#results');
   resultsDiv.empty(); // Clear previous content
   resultsDiv.append(`
@@ -230,6 +230,8 @@ async function display_rencontre() {
        🏆 Résultats généraux 🏆
     </span>
   `)
+  const rowDivGlobal = $('<div class="row"></div>'); // Create a new row
+  resultsDiv.append(rowDivGlobal)
 
   for (const team of teams) {
     // console.log(team)
@@ -281,20 +283,7 @@ async function display_rencontre() {
 
     // Display the results in a div
     // console.log(finalFilteredTourList)
-    // console.log(filteredIndexGlobal, team)
     const teamResults = finalFilteredTourList.map((team) => {
-      const lineResult = [];
-      // console.log(rowDiv)
-      // console.log(filteredIndexGlobal)
-      if (filteredIndexGlobal % 3 === 0) {
-        // If it's a multiple of 3, create a new row
-        if (rowDiv !== null) {
-          lineResult.push('</div>'); // Close the previous row
-        }
-        rowDiv = $('<div class="row"></div>'); // Create a new row
-        resultsDiv.append(rowDiv)
-      }
-
       const emoji = mapResultsToEmoji(team);
       const colDiv = $(`
         <div class="col-sm-4" style="font-size: 0.9rem"></div>
@@ -303,16 +292,8 @@ async function display_rencontre() {
         <span style='color: grey'>${libdivision}</span>
         <br>${emoji} ${team.equa === null ? "" : team.equa} - ${team.equb === null ? "" : team.equb}${(team.scorea !== null && team.scoreb !== null) ? ` | <b>${team.scorea}-${team.scoreb}</b>` : ""}
       `);
-      rowDiv.append(colDiv); // Append the column to the current row
-      filteredIndexGlobal += 1;
-
-      if (filteredIndexGlobal === finalFilteredTourList.length) {
-        lineResult.push(rowDiv);
-      }
-      return lineResult;
-
+      rowDivGlobal.append(colDiv); // Append the column to the current row
     });
-    filteredIndexGlobal += 1;
   };
   resultsDiv.append(`
     <hr>
@@ -325,8 +306,8 @@ async function display_rencontre() {
     </span>
   `)
 
-  let filteredIndexDetails=0;
-  rowDiv = null;
+  const rowDivDetails = $('<div class="row"></div>'); // Create a new row
+  resultsDiv.append(rowDivDetails);
   for (const team of teams) {
     var libdivision = team.libdivision
     libdivision = libdivision.replace(/phase /gi, 'P');
@@ -378,17 +359,6 @@ async function display_rencontre() {
     // Display the results in a div
     // console.log(finalFilteredTourList)
     const teamResults = finalFilteredTourList.map(async (team) => {
-
-      const lineResult = [];
-      if (filteredIndexDetails % 3 === 0) {
-        // If it's a multiple of 3, create a new row
-        if (rowDiv !== null) {
-          lineResult.push('</div>'); // Close the previous row
-        }
-        rowDiv = $('<div class="row"></div>'); // Create a new row
-        resultsDiv.append(rowDiv)
-      }
-
       // console.log(team)
       const lien = team.lien
       var resultTeam = await $.ajax({
@@ -448,16 +418,8 @@ async function display_rencontre() {
         <hr>
       `);
 
-      rowDiv.append(colDiv); // Append the column to the current row
-      filteredIndexDetails += 1;
-
-      if (filteredIndexDetails === finalFilteredTourList.length) {
-        lineResult.push(rowDiv);
-      }
-      return lineResult;
-
+      rowDivDetails.append(colDiv); // Append the column to the current row
     });
-    filteredIndexDetails += 1;
   };
   resultsDiv.append(`
     <hr>
@@ -589,6 +551,8 @@ async function init2() {
       text: 'Veuillez choisir un nom de club'
     });
     select.append(option);
+    const resultsDiv = $('#results');
+    resultsDiv.empty(); // Clear previous content
     updateBoxShadow();
   });
 }
