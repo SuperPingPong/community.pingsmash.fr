@@ -230,7 +230,6 @@ function getRankFromTeam(resultRank, teamName) {
 }
 
 function getPlayerValue(resultTeam, playerName) {
-  console.log(resultTeam.liste.joueur)
   const playera = resultTeam.liste.joueur.find(player => player.xja === playerName);
   if (playera) {
     const match = playera.xca.match(/(\d+)pts/);
@@ -466,28 +465,28 @@ async function display_rencontre() {
         <hr>
       `);
 
-      // TODO: add emoji 💥 on contre perf
-      // TODO: add emoji 💪 on perf
-
       // console.log(resultTeam.liste);
 
       // Loop through the "partie" array and display match results
       resultTeam.liste.partie.forEach(match => {
-        /*
-        console.log(match.ja, match.scorea, match.jb, match.scoreb)
-        console.log(match.ja, match.jb)
-        const zz = getPlayerValue(resultTeam, match.ja)
-        console.log(zz)
-        const ee = getPlayerValue(resultTeam, match.jb)
-        console.log(ee)
-        console.log('---')
-        */
         const valuePlayera = getPlayerValue(resultTeam, match.ja)
         const valuePlayerb = getPlayerValue(resultTeam, match.jb)
+        let emojiPerfa = null;
+        let emojiPerfb = null;
+        if (match.scorea === scoreWin && valuePlayerb - valuePlayera >= 50) {
+          emojiPerfa = "💪";
+          emojiPerfb = "💥";
+          console.log(match.ja, match.jb, emojiPerfa, emojiPerfb)
+        }
+        if (match.scoreb === scoreWin && valuePlayera - valuePlayerb >= 50) {
+          emojiPerfb = "💪";
+          emojiPerfa = "💥";
+          console.log(match.ja, match.jb, emojiPerfa, emojiPerfb)
+        }
         colDiv.append(`
           <div style="">
-            ${match.ja === null ? `<span><i style="color: red !important">**ABSENT**</i></span> <b>0 - ` : `<span style="color: ${match.scorea === scoreWin ? 'green': 'red'}">${match.ja}</span> <b>${match.scorea} - `}
-            ${match.jb === null ? ` 0</b> <span><i style="color: red !important">**ABSENT**</i></span>` : `${match.scoreb}</b> <span style="color: ${match.scoreb === scoreWin ? 'green': 'red'}">${match.jb}</span>`}
+            ${match.ja === null ? `<span><i style="color: red !important">**ABSENT**</i></span> <b>0 - ` : `<span style="color: ${match.scorea === scoreWin ? 'green': 'red'}">${emojiPerfa !== null ? `${emojiPerfa} `: ''}${match.ja}</span> <b>${match.scorea} - `}
+            ${match.jb === null ? ` 0</b> <span><i style="color: red !important">**ABSENT**</i></span>` : `${match.scoreb}</b> <span style="color: ${match.scoreb === scoreWin ? 'green': 'red'}">${match.jb}${emojiPerfb !== null ? ` ${emojiPerfb}`: ''}</span>`}
             ${(match.ja !== null && match.jb !== null) ? `<span style="color: grey"> (${match.detail})</span>` : ''}
             <br>
           </div>
