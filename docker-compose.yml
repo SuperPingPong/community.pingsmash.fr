@@ -5,8 +5,6 @@ services:
     restart: always
     ports:
       - "0.0.0.0:43080:80"
-    volumes:
-      - $PWD/frontend/html:/usr/share/nginx/html
   api:
     build: backend
     restart: always
