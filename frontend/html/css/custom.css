@@ -66,7 +66,7 @@ p {
 
   /* Media query for mobile devices with a maximum width of 767px */
   @media (max-width: 767px) {
-    font-size: 0.75rem !important; /* Font size for mobile devices */
+    font-size: 0.65rem !important; /* Font size for mobile devices */
   }
 }
 

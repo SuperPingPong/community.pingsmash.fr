@@ -71,9 +71,10 @@ async function fetchResults(clubId) {
 
       var tourList = resultData.liste.tour;
       // console.log(JSON.stringify(tourList, null, 4));
-      // var rencontres = Array.from(new Set(tourList.map(item => item.dateprevue)));
+      var rencontres = Array.from(new Set(tourList.map(item => item.dateprevue)));
       // console.log(JSON.stringify(rencontres, null, 4));
 
+      /*
       var now = new Date(); // Get the current date
       rencontres = Array.from(new Set(tourList.map(item => item.dateprevue)))
         .filter(date => {
@@ -82,6 +83,7 @@ async function fetchResults(clubId) {
           // Check if dateprevue is earlier than or equal to today (ignoring time)
           return dateprevue <= now || dateprevue.toDateString() === now.toDateString();
         })
+      */
 
       rencontres.forEach(function(date) {
           var field = group + ' - ' + date;
@@ -198,9 +200,27 @@ function mapResultsToEmoji(team) {
     return '😞'; // Emoji for loss
   }
   if (scoreClub === scoreOther) {
-    return '😐'; // Emoji for draw
+    return '🤝'; // Emoji for draw
   }
   return '❓'; // Emoji for unknown
+}
+
+function getRankFromTeam(resultRank, teamName) {
+  const classement = resultRank.liste.classement;
+
+  for (let i = 0; i < classement.length; i++) {
+    if (classement[i].equipe === teamName) {
+      const result = classement[i].clt;
+      if (result === '1') {
+        return '1er'
+      } else {
+        return result + 'eme' // 2eme, 3eme...
+      }
+    }
+  }
+
+  // If the teamName is not found, you can return a default value or handle the case accordingly.
+  return null; // Or any other appropriate value
 }
 
 async function display_rencontre() {
@@ -235,6 +255,8 @@ async function display_rencontre() {
   `)
   const rowDivGlobal = $('<div class="row"></div>'); // Create a new row
   resultsDiv.append(rowDivGlobal)
+
+  var atLeastOneMatchDone = false;
 
   for (const team of teams) {
     // console.log(team)
@@ -273,26 +295,34 @@ async function display_rencontre() {
       return item.lien.includes(storedClubId);
     });
 
-    for (const team of finalFilteredTourList) {
-      const emoji = mapResultsToEmoji(team);
-      // console.log(`Team: ${team.equa} - ${team.equb} | Score: ${team.scorea}-${team.scoreb} | Emoji: ${emoji}`);
-    }
-
     // Ignore if no matchs for this team
     if (finalFilteredTourList.length === 0) {
       continue
     }
 
+    var resultRank = await $.ajax({
+      url: '/api/team/rank?' + division,
+      method: 'GET',
+    });
+
+    // console.log(finalFilteredTourList)
+    // console.log(resultRank);
+
     // Display the results in a div
     // console.log(finalFilteredTourList)
     const teamResults = finalFilteredTourList.map((team) => {
       const emoji = mapResultsToEmoji(team);
+      if (emoji !== '❓') {
+        atLeastOneMatchDone = true;
+      }
       const colDiv = $(`
         <div class="col-sm-4 teamResultsGlobal"></div>
       `); // Create a column element
+      const rankEqua = getRankFromTeam(resultRank, team.equa)
+      const rankEqub = getRankFromTeam(resultRank, team.equb)
       colDiv.html(`
         <span style='color: grey'>${libdivision}</span>
-        <br>${emoji} ${team.equa === null ? "" : team.equa} - ${team.equb === null ? "" : team.equb}${(team.scorea !== null && team.scoreb !== null) ? ` | <b>${team.scorea}-${team.scoreb}</b>` : ""}
+        <br>${emoji} ${team.equa === null ? "" : team.equa}${rankEqua !== null ? ` (${rankEqua})` : ''} - ${team.equb === null ? "" : team.equb}${rankEqub !== null ? ` (${rankEqub})` : ''}${(team.scorea !== null && team.scoreb !== null) ? ` | <b>${team.scorea}-${team.scoreb}</b>` : ""}
       `);
       rowDivGlobal.append(colDiv); // Append the column to the current row
     });
@@ -300,11 +330,17 @@ async function display_rencontre() {
   resultsDiv.append(`
     <hr>
   `)
+  if (atLeastOneMatchDone === true) {
   resultsDiv.append(`
-    <span class="padding-bottom--24"
+    <span class=""
       style="text-align: center; font-size: 20px; line-height: 28px; display: block"
     >
        🏓 Détails des matchs 🏓
+    </span>
+    <span class="padding-bottom--24"
+      style="text-align: center; font-size: 13px; line-height: 28px; display: block"
+    >
+       📄 Légende 📄 --> 💪=Perf | 💥=Contre
     </span>
   `)
 
@@ -352,12 +388,13 @@ async function display_rencontre() {
       continue
     }
 
-    // console.log(finalFilteredTourList);
+    var resultRank = await $.ajax({
+      url: '/api/team/rank?' + division,
+      method: 'GET',
+    });
 
-    for (const team of finalFilteredTourList) {
-      const emoji = mapResultsToEmoji(team);
-      // console.log(`Team: ${team.equa} - ${team.equb} | Score: ${team.scorea}-${team.scoreb} | Emoji: ${emoji}`);
-    }
+    // console.log(finalFilteredTourList)
+    // console.log(resultRank);
 
     // Display the results in a div
     // console.log(finalFilteredTourList)
@@ -387,9 +424,11 @@ async function display_rencontre() {
       const colDiv = $(`
         <div class="col-sm-4 teamResultsDetails"></div>
       `); // Create a column element
+      const rankEqua = getRankFromTeam(resultRank, team.equa)
+      const rankEqub = getRankFromTeam(resultRank, team.equb)
       colDiv.html(`
         <span style='color: grey'>${libdivision}</span>
-        <br>${emoji} ${team.equa} - ${team.equb} | <b>${team.scorea}-${team.scoreb}</b>
+        <br>${emoji} ${team.equa === null ? "" : team.equa}${rankEqua !== null ? ` (${rankEqua})` : ''} - ${team.equb === null ? "" : team.equb}${rankEqub !== null ? ` (${rankEqub})` : ''}${(team.scorea !== null && team.scoreb !== null) ? ` | <b>${team.scorea}-${team.scoreb}</b>` : ""}
         <hr>
       `);
 
@@ -404,6 +443,9 @@ async function display_rencontre() {
       colDiv.append(`
         <hr>
       `);
+
+      // TODO: add emoji 💥 on contre perf
+      // TODO: add emoji 💪 on perf
 
       // Loop through the "partie" array and display match results
       resultTeam.liste.partie.forEach(match => {
@@ -427,6 +469,7 @@ async function display_rencontre() {
   resultsDiv.append(`
     <hr>
   `)
+  }
 }
 
 async function search() {
