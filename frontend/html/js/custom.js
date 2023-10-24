@@ -207,6 +207,9 @@ async function display_rencontre() {
   const selectedValue = $("#type option:selected").val();
   const regex = /([^-\s]+) - (\d{2}\/\d{2}\/\d{4})/;
   const matchTextValue = selectedValue.match(regex);
+  if (matchTextValue === null) {
+    return
+  }
 
   const targetGroup = matchTextValue[1];
   const targetDate = matchTextValue[2];
@@ -286,7 +289,7 @@ async function display_rencontre() {
     const teamResults = finalFilteredTourList.map((team) => {
       const emoji = mapResultsToEmoji(team);
       const colDiv = $(`
-        <div class="col-sm-4" style="font-size: 0.9rem"></div>
+        <div class="col-sm-4 teamResultsGlobal"></div>
       `); // Create a column element
       colDiv.html(`
         <span style='color: grey'>${libdivision}</span>
@@ -382,7 +385,7 @@ async function display_rencontre() {
 
       const emoji = mapResultsToEmoji(team);
       const colDiv = $(`
-        <div class="col-sm-4" style="font-size: 0.9rem"></div>
+        <div class="col-sm-4 teamResultsDetails"></div>
       `); // Create a column element
       colDiv.html(`
         <span style='color: grey'>${libdivision}</span>

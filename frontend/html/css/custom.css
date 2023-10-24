@@ -195,3 +195,21 @@ ul.pagination li.page-item {
 @keyframes octocat-wave{0%,100%{transform:rotate(0)}20%,60%{transform:rotate(-25deg)}40%,80%{transform:rotate(10deg)}}
 @media (max-width:500px){.github-corner:hover .octo-arm{animation:none}
 .github-corner .octo-arm{animation:octocat-wave 560ms ease-in-out}}
+
+.teamResultsGlobal, label, input, .field input.regular, button, select, option {
+  font-size: 0.9rem; /* Default font size for desktop */
+
+  /* Media query for mobile devices with a maximum width of 767px */
+  @media (max-width: 767px) {
+    font-size: 0.75rem !important; /* Font size for mobile devices */
+  }
+}
+
+.teamResultsDetails {
+  font-size: 0.9rem; /* Default font size for desktop */
+
+  /* Media query for mobile devices with a maximum width of 767px */
+  @media (max-width: 767px) {
+    font-size: 0.6rem !important; /* Font size for mobile devices */
+  }
+}
