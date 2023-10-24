@@ -238,9 +238,8 @@ async function display_rencontre() {
 
   for (const team of teams) {
     // console.log(team)
-    var libdivision = team.libdivision
-    libdivision = libdivision.replace(/phase /gi, 'P');
-    // console.log(libdivision)
+    const libdivision = team.libdivision.replace(/phase /gi, 'P');
+    // console.log(libdivision, team)
     var division = team.liendivision;
     var matchDivision = division.match(/organisme_pere=(\d+)/);
     var organisme_id = matchDivision[1];
@@ -312,8 +311,9 @@ async function display_rencontre() {
   const rowDivDetails = $('<div class="row"></div>'); // Create a new row
   resultsDiv.append(rowDivDetails);
   for (const team of teams) {
-    var libdivision = team.libdivision
-    libdivision = libdivision.replace(/phase /gi, 'P');
+    // console.log(team)
+    const libdivision = team.libdivision.replace(/phase /gi, 'P');
+    // console.log(libdivision, team)
     var division = team.liendivision;
     var matchDivision = division.match(/organisme_pere=(\d+)/);
     var organisme_id = matchDivision[1];
