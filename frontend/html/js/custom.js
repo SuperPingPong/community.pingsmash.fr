@@ -85,8 +85,8 @@ async function fetchResults(clubId) {
         })
       */
 
-      rencontres.forEach(function(date) {
-          var field = group + ' - ' + date;
+      rencontres.forEach(function(date, index) {
+          var field = `${group} J${1+index} (${date})`;
           if (!RENCONTRES.includes(field)) {
               RENCONTRES.push(field);
           }
@@ -97,9 +97,15 @@ async function fetchResults(clubId) {
     // console.log(RENCONTRES)
     RENCONTRES.sort((a, b) => {
       var order = { "National": 1, "Régional": 2, "Départemental": 3 };
-      // Split the strings into parts
-      let [categoryA, dateA] = a.split(" - ");
-      let [categoryB, dateB] = b.split(" - ");
+      const groupRegex = /(.+) J\d+ \((.+)\)/;
+
+      let groupMatchA = a.match(groupRegex);
+      let categoryA = groupMatchA[1];
+      let dateA = groupMatchA[2];
+
+      let groupMatchB = b.match(groupRegex);
+      let categoryB = groupMatchB[1];
+      let dateB = groupMatchB[2];
 
       // Create a new Date object with the components
       const [dayA, monthA, yearA] = dateA.split('/');
@@ -223,10 +229,26 @@ function getRankFromTeam(resultRank, teamName) {
   return null; // Or any other appropriate value
 }
 
+function getPlayerValue(resultTeam, playerName) {
+  console.log(resultTeam.liste.joueur)
+  const playera = resultTeam.liste.joueur.find(player => player.xja === playerName);
+  if (playera) {
+    const match = playera.xca.match(/(\d+)pts/);
+    return parseInt(match[1], 10);
+  }
+  const playerb = resultTeam.liste.joueur.find(player => player.xjb === playerName);
+  if (playerb) {
+    const match = playerb.xcb.match(/(\d+)pts/);
+    return parseInt(match[1], 10);
+  }
+  return null; // or any other default value
+}
+
 async function display_rencontre() {
   const selectedValue = $("#type option:selected").val();
-  const regex = /([^-\s]+) - (\d{2}\/\d{2}\/\d{4})/;
-  const matchTextValue = selectedValue.match(regex);
+  const groupRegex = /(.+) J\d+ \((.+)\)/;
+
+  const matchTextValue = selectedValue.match(groupRegex);
   if (matchTextValue === null) {
     return
   }
@@ -447,16 +469,29 @@ async function display_rencontre() {
       // TODO: add emoji 💥 on contre perf
       // TODO: add emoji 💪 on perf
 
+      // console.log(resultTeam.liste);
+
       // Loop through the "partie" array and display match results
       resultTeam.liste.partie.forEach(match => {
-          colDiv.append(`
-            <div style="">
-              ${match.ja === null ? `<span><i style="color: red !important">**ABSENT**</i></span> <b>0 - ` : `<span style="color: ${match.scorea === scoreWin ? 'green': 'red'}">${match.ja}</span> <b>${match.scorea} - `}
-              ${match.jb === null ? ` 0</b> <span><i style="color: red !important">**ABSENT**</i></span>` : `${match.scoreb}</b> <span style="color: ${match.scoreb === scoreWin ? 'green': 'red'}">${match.jb}</span>`}
-              ${(match.ja !== null && match.jb !== null) ? `<span style="color: grey"> (${match.detail})</span>` : ''}
-              <br>
-            </div>
-          `);
+        /*
+        console.log(match.ja, match.scorea, match.jb, match.scoreb)
+        console.log(match.ja, match.jb)
+        const zz = getPlayerValue(resultTeam, match.ja)
+        console.log(zz)
+        const ee = getPlayerValue(resultTeam, match.jb)
+        console.log(ee)
+        console.log('---')
+        */
+        const valuePlayera = getPlayerValue(resultTeam, match.ja)
+        const valuePlayerb = getPlayerValue(resultTeam, match.jb)
+        colDiv.append(`
+          <div style="">
+            ${match.ja === null ? `<span><i style="color: red !important">**ABSENT**</i></span> <b>0 - ` : `<span style="color: ${match.scorea === scoreWin ? 'green': 'red'}">${match.ja}</span> <b>${match.scorea} - `}
+            ${match.jb === null ? ` 0</b> <span><i style="color: red !important">**ABSENT**</i></span>` : `${match.scoreb}</b> <span style="color: ${match.scoreb === scoreWin ? 'green': 'red'}">${match.jb}</span>`}
+            ${(match.ja !== null && match.jb !== null) ? `<span style="color: grey"> (${match.detail})</span>` : ''}
+            <br>
+          </div>
+        `);
       });
 
       colDiv.append(`
