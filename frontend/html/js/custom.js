@@ -284,6 +284,7 @@ async function display_rencontre() {
   resultsDiv.append(rowDivGlobal)
 
   var atLeastOneMatchDone = false;
+  var resultTeamDetails = {};
 
   for (const team of teams) {
     // console.log(team)
@@ -337,7 +338,24 @@ async function display_rencontre() {
 
     // Display the results in a div
     // console.log(finalFilteredTourList)
-    const teamResults = finalFilteredTourList.map((team) => {
+    const teamResults = finalFilteredTourList.map(async (team) => {
+
+      const lien = team.lien
+      var resultTeam = await $.ajax({
+        url: '/api/result_chp_renc?' + team.lien,
+        method: 'GET',
+      }).catch(function (response) {
+        // console.error(`HTTP 400 error: Bad Request for URL: /api/result_chp_renc?${team.lien}`);
+        // HTTP 400 on fetch /api/result_chp_renc, generally no opposite team
+        console.log(response)
+      })
+
+      if (typeof(resultTeam) !== 'undefined') {
+        resultTeamDetails[team.lien] = resultTeam
+      }
+
+      // console.log(resultTeam)
+
       const emoji = mapResultsToEmoji(team);
       if (emoji !== '❓') {
         atLeastOneMatchDone = true;
@@ -347,9 +365,46 @@ async function display_rencontre() {
       `); // Create a column element
       const rankEqua = getRankFromTeam(resultRank, team.equa)
       const rankEqub = getRankFromTeam(resultRank, team.equb)
+
+      let scoreWin;
+      let teamScorea = 0;
+      let teamScoreb = 0;
+
+      if (typeof(resultTeam) !== 'undefined') {
+        const hasMatchWithTwoPoints = resultTeam.liste.partie.some(item => {
+            return item.scorea === "2" || item.scoreb === "2";
+        });
+        if (hasMatchWithTwoPoints) {
+          scoreWin = '2';
+        } else {
+          scoreWin = '1';
+        }
+
+        resultTeam.liste.partie.forEach(partie => {
+          if (partie.ja !== null) {
+            if (scoreWin === '2') {
+              teamScorea += Math.max(0, parseInt(partie.scorea) - 1);
+            } else {
+              teamScorea += parseInt(partie.scorea);
+            }
+          }
+        });
+
+        resultTeam.liste.partie.forEach(partie => {
+          if (partie.jb !== null) {
+            if (scoreWin === '2') {
+              teamScoreb += Math.max(0, parseInt(partie.scoreb) - 1);
+            } else {
+              teamScoreb += parseInt(partie.scoreb);
+            }
+          }
+        });
+
+      }
+
       colDiv.html(`
         <span style='color: grey'>${libdivision}</span>
-        <br>${emoji} ${team.equa === null ? "" : team.equa}${rankEqua !== null ? ` (${rankEqua})` : ''} - ${team.equb === null ? "" : team.equb}${rankEqub !== null ? ` (${rankEqub})` : ''}${(team.scorea !== null && team.scoreb !== null) ? ` | <b>${team.scorea}-${team.scoreb}</b>` : ""}
+        <br>${emoji} ${team.equa === null ? "" : team.equa}${rankEqua !== null ? ` (${rankEqua})` : ''} - ${team.equb === null ? "" : team.equb}${rankEqub !== null ? ` (${rankEqub})` : ''}${(team.scorea !== null && team.scoreb !== null) ? ` | <b>${teamScorea}-${teamScoreb}</b>` : ""}
       `);
       rowDivGlobal.append(colDiv); // Append the column to the current row
     });
@@ -427,11 +482,12 @@ async function display_rencontre() {
     // console.log(finalFilteredTourList)
     const teamResults = finalFilteredTourList.map(async (team) => {
       // console.log(team)
-      const lien = team.lien
-      var resultTeam = await $.ajax({
-        url: '/api/result_chp_renc?' + team.lien,
-        method: 'GET',
-      });
+      let resultTeam = null;
+      resultTeam = resultTeamDetails[team.lien]
+      if (typeof(resultTeam) === 'undefined') {
+        return
+      } // HTTP 400 on fetch /api/result_chp_renc, generally no opposite team
+
       // console.log(resultTeam)
 
       // Check if score system is 1-0 or 2-1
@@ -482,12 +538,12 @@ async function display_rencontre() {
         if (match.scorea === scoreWin && valuePlayerb - valuePlayera >= 50) {
           emojiPerfa = "💪";
           emojiPerfb = "💥";
-          console.log(match.ja, match.jb, emojiPerfa, emojiPerfb)
+          // console.log(match.ja, match.jb, emojiPerfa, emojiPerfb)
         }
         if (match.scoreb === scoreWin && valuePlayera - valuePlayerb >= 50) {
           emojiPerfb = "💪";
           emojiPerfa = "💥";
-          console.log(match.ja, match.jb, emojiPerfa, emojiPerfb)
+          // console.log(match.ja, match.jb, emojiPerfa, emojiPerfb)
         }
         colDiv.append(`
           <div style="">
