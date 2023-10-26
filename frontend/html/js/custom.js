@@ -232,11 +232,17 @@ function getRankFromTeam(resultRank, teamName) {
 function getPlayerValue(resultTeam, playerName) {
   const playera = resultTeam.liste.joueur.find(player => player.xja === playerName);
   if (playera) {
+    if (playera.xca === null) {
+      return 0
+    }
     const match = playera.xca.match(/(\d+)pts/);
     return parseInt(match[1], 10);
   }
   const playerb = resultTeam.liste.joueur.find(player => player.xjb === playerName);
   if (playerb) {
+    if (playerb.xcb === null) {
+      return 0
+    }
     const match = playerb.xcb.match(/(\d+)pts/);
     return parseInt(match[1], 10);
   }
