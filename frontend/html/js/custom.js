@@ -385,7 +385,8 @@ async function display_rencontre() {
             if (scoreWin === '2') {
               teamScorea += Math.max(0, parseInt(partie.scorea) - 1);
             } else {
-              teamScorea += parseInt(partie.scorea);
+              const scorea = parseInt(partie.scorea);
+              teamScorea += isNaN(scorea) ? 0 : scorea;
             }
           }
         });
@@ -395,7 +396,8 @@ async function display_rencontre() {
             if (scoreWin === '2') {
               teamScoreb += Math.max(0, parseInt(partie.scoreb) - 1);
             } else {
-              teamScoreb += parseInt(partie.scoreb);
+              const scoreb = parseInt(partie.scoreb);
+              teamScoreb += isNaN(scoreb) ? 0 : scoreb;
             }
           }
         });
