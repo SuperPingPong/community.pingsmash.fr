@@ -249,43 +249,9 @@ function getPlayerValue(resultTeam, playerName) {
   return null; // or any other default value
 }
 
-async function display_rencontre() {
-  const selectedValue = $("#type option:selected").val();
-  const groupRegex = /(.+) J\d+ \((.+)\)/;
-
-  const matchTextValue = selectedValue.match(groupRegex);
-  if (matchTextValue === null) {
-    return
-  }
-
-  const targetGroup = matchTextValue[1];
-  const targetDate = matchTextValue[2];
-
-  // console.log("Group:", targetGroup);
-  // console.log("Target Date:", targetDate);
-
-  // RENCONTRES = [];
-  storedClubId = localStorage.getItem('CLUB_ID');
-  var teams = await $.ajax({
-    url: '/api/teams?club_id=' + storedClubId,
-    method: 'GET',
-  });
-
-  const resultsDiv = $('#results');
-  resultsDiv.empty(); // Clear previous content
-  resultsDiv.append(`
-    <span class="padding-bottom--24"
-      style="text-align: center; font-size: 20px; line-height: 28px; display: block"
-    >
-       🏆 Résultats généraux 🏆
-    </span>
-  `)
-  const rowDivGlobal = $('<div class="row"></div>'); // Create a new row
-  resultsDiv.append(rowDivGlobal)
-
-  var atLeastOneMatchDone = false;
-  var resultTeamDetails = {};
-
+async function computeGlobalResults(teams, targetGroup, targetDate, rowDivGlobal) {
+  let atLeastOneMatchDone = true;
+  let resultTeamDetails = {};
   for (const team of teams) {
     // console.log(team)
     const libdivision = team.libdivision.replace(/phase /gi, 'P');
@@ -338,26 +304,29 @@ async function display_rencontre() {
 
     // Display the results in a div
     // console.log(finalFilteredTourList)
+    //TODO fix order of execution Résulattas généraux puis détails des matchs
     const teamResults = finalFilteredTourList.map(async (team) => {
 
       const lien = team.lien
+      resultTeamDetails[team.lien] = {}
       var resultTeam = await $.ajax({
         url: '/api/result_chp_renc?' + team.lien,
         method: 'GET',
       }).catch(function (response) {
         // console.error(`HTTP 400 error: Bad Request for URL: /api/result_chp_renc?${team.lien}`);
         // HTTP 400 on fetch /api/result_chp_renc, generally no opposite team
-        console.log(response)
+        // console.log(response)
       })
 
       if (typeof(resultTeam) !== 'undefined') {
-        resultTeamDetails[team.lien] = resultTeam
+        resultTeamDetails[team.lien]['details'] = resultTeam
       }
 
       // console.log(resultTeam)
 
       const emoji = mapResultsToEmoji(team);
       if (emoji !== '❓') {
+        // resultTeamDetails[team.lien]['atLeastOneMatchDone'] = true
         atLeastOneMatchDone = true;
       }
       const colDiv = $(`
@@ -411,9 +380,52 @@ async function display_rencontre() {
       rowDivGlobal.append(colDiv); // Append the column to the current row
     });
   };
+  return [atLeastOneMatchDone, resultTeamDetails];
+}
+
+async function display_rencontre() {
+  const selectedValue = $("#type option:selected").val();
+  const groupRegex = /(.+) J\d+ \((.+)\)/;
+
+  const matchTextValue = selectedValue.match(groupRegex);
+  if (matchTextValue === null) {
+    return
+  }
+
+  const targetGroup = matchTextValue[1];
+  const targetDate = matchTextValue[2];
+
+  // console.log("Group:", targetGroup);
+  // console.log("Target Date:", targetDate);
+
+  // RENCONTRES = [];
+  storedClubId = localStorage.getItem('CLUB_ID');
+  var teams = await $.ajax({
+    url: '/api/teams?club_id=' + storedClubId,
+    method: 'GET',
+  });
+
+  const resultsDiv = $('#results');
+  resultsDiv.empty(); // Clear previous content
+  resultsDiv.append(`
+    <span class="padding-bottom--24"
+      style="text-align: center; font-size: 20px; line-height: 28px; display: block"
+    >
+       🏆 Résultats généraux 🏆
+    </span>
+  `)
+  const rowDivGlobal = $('<div class="row"></div>'); // Create a new row
+  resultsDiv.append(rowDivGlobal)
+
+  const [atLeastOneMatchDone, resultTeamDetails] = await computeGlobalResults(teams, targetGroup, targetDate, rowDivGlobal);
+  // console.log('---')
+  // console.log(atLeastOneMatchDone)
+  // console.log(resultTeamDetails);
+  // console.log('---')
   resultsDiv.append(`
     <hr>
   `)
+
   if (atLeastOneMatchDone === true) {
   resultsDiv.append(`
     <span class=""
@@ -485,11 +497,10 @@ async function display_rencontre() {
     const teamResults = finalFilteredTourList.map(async (team) => {
       // console.log(team)
       let resultTeam = null;
-      resultTeam = resultTeamDetails[team.lien]
+      resultTeam = resultTeamDetails[team.lien]['details']
       if (typeof(resultTeam) === 'undefined') {
         return
       } // HTTP 400 on fetch /api/result_chp_renc, generally no opposite team
-
       // console.log(resultTeam)
 
       // Check if score system is 1-0 or 2-1
@@ -549,8 +560,8 @@ async function display_rencontre() {
         }
         colDiv.append(`
           <div style="">
-            ${match.ja === null ? `<span><i style="color: red !important">**ABSENT**</i></span> <b>0 - ` : `<span style="color: ${match.scorea === scoreWin ? 'green': 'red'}">${emojiPerfa !== null ? `${emojiPerfa} `: ''}${match.ja}</span> <b>${match.scorea} - `}
-            ${match.jb === null ? ` 0</b> <span><i style="color: red !important">**ABSENT**</i></span>` : `${match.scoreb}</b> <span style="color: ${match.scoreb === scoreWin ? 'green': 'red'}">${match.jb}${emojiPerfb !== null ? ` ${emojiPerfb}`: ''}</span>`}
+            ${match.ja === null ? `<span><i style="color: red !important">**ABSENT**</i></span> <b>0 - ` : `<span style="color: ${match.scorea === scoreWin ? 'green': 'red'}">${emojiPerfa !== null ? `${emojiPerfa} `: ''}${match.ja}</span> <b>${match.scorea === '-' ? 0 : match.scorea} - `}
+            ${match.jb === null ? ` 0</b> <span><i style="color: red !important">**ABSENT**</i></span>` : `${match.scoreb === '-' ? 0 : match.scoreb}</b> <span style="color: ${match.scoreb === scoreWin ? 'green': 'red'}">${match.jb}${emojiPerfb !== null ? ` ${emojiPerfb}`: ''}</span>`}
             ${(match.ja !== null && match.jb !== null) ? `<span style="color: grey"> (${match.detail})</span>` : ''}
             <br>
           </div>
