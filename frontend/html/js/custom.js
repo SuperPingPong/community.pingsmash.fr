@@ -250,7 +250,7 @@ function getPlayerValue(resultTeam, playerName) {
 }
 
 async function computeGlobalResults(teams, targetGroup, targetDate, rowDivGlobal) {
-  let atLeastOneMatchDone = true;
+  let atLeastOneMatchDone = false;
   let resultTeamDetails = {};
   for (const team of teams) {
     // console.log(team)
@@ -304,7 +304,6 @@ async function computeGlobalResults(teams, targetGroup, targetDate, rowDivGlobal
 
     // Display the results in a div
     // console.log(finalFilteredTourList)
-    //TODO fix order of execution Résulattas généraux puis détails des matchs
     const teamResults = finalFilteredTourList.map(async (team) => {
 
       const lien = team.lien
@@ -384,6 +383,7 @@ async function computeGlobalResults(teams, targetGroup, targetDate, rowDivGlobal
 }
 
 async function display_rencontre() {
+  // TODO: use get param
   const selectedValue = $("#type option:selected").val();
   const groupRegex = /(.+) J\d+ \((.+)\)/;
 
@@ -399,6 +399,7 @@ async function display_rencontre() {
   // console.log("Target Date:", targetDate);
 
   // RENCONTRES = [];
+  // TODO: use get param
   storedClubId = localStorage.getItem('CLUB_ID');
   var teams = await $.ajax({
     url: '/api/teams?club_id=' + storedClubId,
@@ -426,6 +427,7 @@ async function display_rencontre() {
     <hr>
   `)
 
+  console.log([atLeastOneMatchDone, resultTeamDetails])
   if (atLeastOneMatchDone === true) {
   resultsDiv.append(`
     <span class=""
