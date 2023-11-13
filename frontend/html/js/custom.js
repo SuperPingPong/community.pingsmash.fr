@@ -37,7 +37,7 @@ async function fetchGetParams() {
   ) {
     clean_local_storage();
     $('#search-input').val(qs.club_name);
-    $('#search-id').val(qs.club_id);
+    $('#search-input-id').val(qs.club_id);
     await fetchResults(qs.club_id);
     $('#type').find("option[value='" + qs.rencontre_choice + "']").prop('selected', true);
     console.log($("#type option:selected").val());
