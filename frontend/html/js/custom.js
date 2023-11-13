@@ -1,23 +1,86 @@
-const selectElement = document.getElementById('type');
+function clean_local_storage() {
+    // localStorage.removeItem('CLUB_NAME');
+    // localStorage.removeItem('CLUB_ID');
+    localStorage.removeItem('ORGANISME_REGIONAL_IDS');
+    localStorage.removeItem('ORGANISME_DEPARTEMENTAL_IDS');
+}
 
-var ORGANISME_NATIONAL_IDS = ['1', '4'];
-var ORGANISME_REGIONAL_IDS;
-var ORGANISME_DEPARTEMENTAL_IDS;
-var RENCONTRES;
+function parse_query_string(query) {
+  var vars = query.split("&");
+  var query_string = {};
+  for (var i = 0; i < vars.length; i++) {
+    var pair = vars[i].split("=");
+    var key = decodeURIComponent(pair.shift());
+    var value = decodeURIComponent(pair.join("="));
+    // If first entry with this name
+    if (typeof query_string[key] === "undefined") {
+      query_string[key] = value;
+      // If second entry with this name
+    } else if (typeof query_string[key] === "string") {
+      var arr = [query_string[key], value];
+      query_string[key] = arr;
+      // If third or later entry with this name
+    } else {
+      query_string[key].push(value);
+    }
+  }
+  return query_string;
+}
 
-var storedClubName = localStorage.getItem('CLUB_NAME');
-var storedClubId = localStorage.getItem('CLUB_ID');
-var storedRegionalIds = localStorage.getItem('ORGANISME_REGIONAL_IDS');
-var storedDepartementalIds = localStorage.getItem('ORGANISME_DEPARTEMENTAL_IDS');
-var storedRencontres = localStorage.getItem('RENCONTRES');
-var storedRencontreChoice = localStorage.getItem('RENCONTRE_CHOICE');
+async function fetchGetParams() {
+  var query = window.location.search.substring(1);
+  var qs = parse_query_string(query);
+  if (
+    qs.club_id != undefined &&
+    qs.club_name != undefined &&
+    qs.rencontre_choice != undefined
+  ) {
+    clean_local_storage();
+    $('#search-input').val(qs.club_name);
+    $('#search-id').val(qs.club_id);
+    await fetchResults(qs.club_id);
+    $('#type').find("option[value='" + qs.rencontre_choice + "']").prop('selected', true);
+    console.log($("#type option:selected").val());
+    await display_rencontre(qs.club_id, qs.rencontre_choice);
+
+  } else {
+    const storedClubId = localStorage.getItem('CLUB_ID');
+    if (storedClubId) {
+      await fetchResults(storedClubId);
+    }
+    $('#search-input').val(localStorage.getItem('CLUB_NAME'))
+    $('#search-input-id').val(localStorage.getItem('CLUB_ID'))
+    compute_matchs_select();
+  }
+};
+
+async function submitForm() {
+  const selectedValue = $("#type option:selected").val();
+  const groupRegex = /(.+) J\d+ \((.+)\)/;
+
+  const matchTextValue = selectedValue.match(groupRegex);
+  if (matchTextValue === null) {
+    return
+  }
+
+  const club_id = $("#search-input-id").val();
+  const club_name = $("#search-input").val();
+  window.location = '/?club_id=' + club_id
+    + '&club_name=' + club_name
+    + '&rencontre_choice=' + selectedValue
+}
 
 async function init_organismes_vars() {
+  const ORGANISME_NATIONAL_IDS = ['1', '4'];
+  var ORGANISME_REGIONAL_IDS;
+  var ORGANISME_DEPARTEMENTAL_IDS;
+  const storedRegionalIds = localStorage.getItem('ORGANISME_REGIONAL_IDS');
+  const storedDepartementalIds = localStorage.getItem('ORGANISME_DEPARTEMENTAL_IDS');
+  // TODO force renew data if its old enough (< 2h)
   if (storedRegionalIds && storedDepartementalIds) {
-      ORGANISME_REGIONAL_IDS = JSON.parse(storedRegionalIds);
-      ORGANISME_DEPARTEMENTAL_IDS = JSON.parse(storedDepartementalIds);
+    ORGANISME_REGIONAL_IDS = JSON.parse(storedRegionalIds);
+    ORGANISME_DEPARTEMENTAL_IDS = JSON.parse(storedDepartementalIds);
   } else {
-    var ORGANISME_NATIONAL_IDS = ['1'];
     await $.ajax({
       url: '/api/organismes?type=L',
       method: 'GET',
@@ -35,106 +98,112 @@ async function init_organismes_vars() {
       localStorage.setItem('ORGANISME_DEPARTEMENTAL_IDS', JSON.stringify(ORGANISME_DEPARTEMENTAL_IDS));
     })
   }
+  return [
+    ORGANISME_NATIONAL_IDS,
+    ORGANISME_REGIONAL_IDS,
+    ORGANISME_DEPARTEMENTAL_IDS
+  ]
 }
 
 async function fetchResults(clubId) {
-  if (storedRencontres) {
-      RENCONTRES = JSON.parse(storedRencontres);
-  } else {
-    RENCONTRES = [];
-    var teams = await $.ajax({
-      url: '/api/teams?club_id=' + clubId,
+  var RENCONTRES = [];
+  var teams = await $.ajax({
+    url: '/api/teams?club_id=' + clubId,
+    method: 'GET',
+  });
+
+  [
+    ORGANISME_NATIONAL_IDS,
+    ORGANISME_REGIONAL_IDS,
+    ORGANISME_DEPARTEMENTAL_IDS
+  ] = await init_organismes_vars();
+
+  await Promise.all(teams.map(async function (team) {
+    var division = team.liendivision;
+    var match = division.match(/organisme_pere=(\d+)/);
+    var organisme_id = match[1];
+
+    var group;
+    if (ORGANISME_NATIONAL_IDS.includes(organisme_id)) {
+        group = 'National';
+    } else if (ORGANISME_REGIONAL_IDS.includes(organisme_id)) {
+        group = 'Régional';
+    } else if (ORGANISME_DEPARTEMENTAL_IDS.includes(organisme_id)) {
+        group = 'Départemental';
+    } else {
+        throw new Error('Unknown group for organisme_id=' + organisme_id);
+    }
+
+    // Perform a GET request to retrieve team results
+    var resultData = await $.ajax({
+      url: '/api/team/results?' + division,
       method: 'GET',
     });
 
-    await Promise.all(teams.map(async function (team) {
-      var division = team.liendivision;
-      var match = division.match(/organisme_pere=(\d+)/);
-      var organisme_id = match[1];
+    var tourList = resultData.liste.tour;
+    // console.log(JSON.stringify(tourList, null, 4));
+    var rencontres = Array.from(new Set(tourList.map(item => item.dateprevue)));
+    // console.log(JSON.stringify(rencontres, null, 4));
 
-      var group;
-      if (ORGANISME_NATIONAL_IDS.includes(organisme_id)) {
-          group = 'National';
-      } else if (ORGANISME_REGIONAL_IDS.includes(organisme_id)) {
-          group = 'Régional';
-      } else if (ORGANISME_DEPARTEMENTAL_IDS.includes(organisme_id)) {
-          group = 'Départemental';
-      } else {
-          throw new Error('Unknown group for organisme_id=' + organisme_id);
-      }
+    /*
+    var now = new Date(); // Get the current date
+    rencontres = Array.from(new Set(tourList.map(item => item.dateprevue)))
+      .filter(date => {
+        var dateParts = date.split('/');
+        var dateprevue = new Date(dateParts[2], dateParts[1] - 1, dateParts[0]); // Assuming dateprevue is in the format 'dd/mm/yyyy'
+        // Check if dateprevue is earlier than or equal to today (ignoring time)
+        return dateprevue <= now || dateprevue.toDateString() === now.toDateString();
+      })
+    */
 
-      // Perform a GET request to retrieve team results
-      var resultData = await $.ajax({
-        url: '/api/team/results?' + division,
-        method: 'GET',
-      });
-
-      var tourList = resultData.liste.tour;
-      // console.log(JSON.stringify(tourList, null, 4));
-      var rencontres = Array.from(new Set(tourList.map(item => item.dateprevue)));
-      // console.log(JSON.stringify(rencontres, null, 4));
-
-      /*
-      var now = new Date(); // Get the current date
-      rencontres = Array.from(new Set(tourList.map(item => item.dateprevue)))
-        .filter(date => {
-          var dateParts = date.split('/');
-          var dateprevue = new Date(dateParts[2], dateParts[1] - 1, dateParts[0]); // Assuming dateprevue is in the format 'dd/mm/yyyy'
-          // Check if dateprevue is earlier than or equal to today (ignoring time)
-          return dateprevue <= now || dateprevue.toDateString() === now.toDateString();
-        })
-      */
-
-      rencontres.forEach(function(date, index) {
-          var field = `${group} J${1+index} (${date})`;
-          if (!RENCONTRES.includes(field)) {
-              RENCONTRES.push(field);
-          }
-      });
-    }));
-
-    // Output the RENCONTRES array as JSON
-    // console.log(RENCONTRES)
-    RENCONTRES.sort((a, b) => {
-      var order = { "National": 1, "Régional": 2, "Départemental": 3 };
-      const groupRegex = /(.+) J\d+ \((.+)\)/;
-
-      let groupMatchA = a.match(groupRegex);
-      let categoryA = groupMatchA[1];
-      let dateA = groupMatchA[2];
-
-      let groupMatchB = b.match(groupRegex);
-      let categoryB = groupMatchB[1];
-      let dateB = groupMatchB[2];
-
-      // Create a new Date object with the components
-      const [dayA, monthA, yearA] = dateA.split('/');
-      dateA = new Date(`${yearA}-${monthA}-${dayA}`);
-      const [dayB, monthB, yearB] = dateB.split('/');
-      dateB = new Date(`${yearB}-${monthB}-${dayB}`);
-
-      // First, sort by the custom order
-      const orderComparison = order[categoryA] - order[categoryB];
-      if (orderComparison !== 0) {
-        return orderComparison;
-      }
-
-      // If the categories are the same, sort by date in ascending order
-      const dateComparison = dateA - dateB;
-      return dateComparison;
+    rencontres.forEach(function(date, index) {
+        var field = `${group} J${1+index} (${date})`;
+        if (!RENCONTRES.includes(field)) {
+            RENCONTRES.push(field);
+        }
     });
+  }));
 
-    localStorage.setItem('RENCONTRES', JSON.stringify(RENCONTRES));
-    // console.log(JSON.stringify(RENCONTRES, null, 4));
-  }
-  await updateBoxShadow();
-  await updateSelectOptions();
+  // Output the RENCONTRES array as JSON
+  // console.log(RENCONTRES)
+  RENCONTRES.sort((a, b) => {
+    var order = { "National": 1, "Régional": 2, "Départemental": 3 };
+    const groupRegex = /(.+) J\d+ \((.+)\)/;
+
+    let groupMatchA = a.match(groupRegex);
+    let categoryA = groupMatchA[1];
+    let dateA = groupMatchA[2];
+
+    let groupMatchB = b.match(groupRegex);
+    let categoryB = groupMatchB[1];
+    let dateB = groupMatchB[2];
+
+    // Create a new Date object with the components
+    const [dayA, monthA, yearA] = dateA.split('/');
+    dateA = new Date(`${yearA}-${monthA}-${dayA}`);
+    const [dayB, monthB, yearB] = dateB.split('/');
+    dateB = new Date(`${yearB}-${monthB}-${dayB}`);
+
+    // First, sort by the custom order
+    const orderComparison = order[categoryA] - order[categoryB];
+    if (orderComparison !== 0) {
+      return orderComparison;
+    }
+
+    // If the categories are the same, sort by date in ascending order
+    const dateComparison = dateA - dateB;
+    return dateComparison;
+  });
+
+  // console.log(JSON.stringify(RENCONTRES, null, 4));
+  await updateBoxShadow(RENCONTRES);
+  await updateSelectOptions(RENCONTRES);
 }
 
 // Function to update the box-shadow
-async function updateBoxShadow() {
-  storedRencontres = localStorage.getItem('RENCONTRES');
-  if (storedRencontres) {
+async function updateBoxShadow(RENCONTRES) {
+  const selectElement = document.getElementById('type');
+  if (RENCONTRES) {
     selectElement.disabled = false;
     selectElement.style.boxShadow = '';
   } else {
@@ -143,9 +212,7 @@ async function updateBoxShadow() {
   }
 }
 
-async function updateSelectOptions() {
-  storedRencontres = localStorage.getItem('RENCONTRES');
-  RENCONTRES = JSON.parse(storedRencontres);
+async function updateSelectOptions(RENCONTRES) {
   var select = $('#type');
   // $('#type option:selected').remove();
   select.empty();
@@ -166,18 +233,16 @@ async function updateSelectOptions() {
 
     // Add a click event to the option
     option.on('click', async function () {
-      localStorage.setItem('RENCONTRE_CHOICE', $(this).val());
       const resultsDiv = $('#results');
       resultsDiv.empty(); // Clear previous content
-      // $("button[type=submit]").prop("disabled", false).css("cursor", "pointer");
-      await display_rencontre();
+      await submitForm();
     });
 
     select.append(option);
   });
 }
 
-function mapResultsToEmoji(team) {
+async function mapResultsToEmoji(team, club_id) {
   const params = team.lien.split('&').reduce((result, param) => {
     const [key, value] = param.split('=');
     result[key] = value;
@@ -187,16 +252,15 @@ function mapResultsToEmoji(team) {
   let scoreClub;
   let scoreOther;
 
-  // console.log(params)
-  storedClubId = localStorage.getItem('CLUB_ID');
-  if (storedClubId === params['clubnum_1']) {
+  // console.log([params, club_id])
+  if (club_id === params['clubnum_1']) {
     scoreClub = parseInt(team.scorea);
     scoreOther = parseInt(team.scoreb);
-  } else if (storedClubId === params['clubnum_2']) {
+  } else if (club_id === params['clubnum_2']) {
     scoreOther = parseInt(team.scorea);
     scoreClub = parseInt(team.scoreb);
   } else {
-    throw new Error('storedClubId does not match clubnum_1 or clubnum_2');
+    throw new Error('club_id does not match clubnum_1 or clubnum_2');
   }
 
   if (scoreClub > scoreOther) {
@@ -249,7 +313,7 @@ function getPlayerValue(resultTeam, playerName) {
   return null; // or any other default value
 }
 
-async function computeGlobalResults(teams, targetGroup, targetDate, rowDivGlobal) {
+async function computeGlobalResults(teams, targetGroup, targetDate, rowDivGlobal, club_id) {
   let atLeastOneMatchDone = false;
   let resultTeamDetails = {};
   for (const team of teams) {
@@ -261,6 +325,11 @@ async function computeGlobalResults(teams, targetGroup, targetDate, rowDivGlobal
     var organisme_id = matchDivision[1];
 
     var group;
+    [
+      ORGANISME_NATIONAL_IDS,
+      ORGANISME_REGIONAL_IDS,
+      ORGANISME_DEPARTEMENTAL_IDS
+    ] = await init_organismes_vars();
     if (ORGANISME_NATIONAL_IDS.includes(organisme_id)) {
         group = 'National';
     } else if (ORGANISME_REGIONAL_IDS.includes(organisme_id)) {
@@ -286,7 +355,7 @@ async function computeGlobalResults(teams, targetGroup, targetDate, rowDivGlobal
       return item.dateprevue === targetDate;
     });
     var finalFilteredTourList = filteredTourList.filter(function (item) {
-      return item.lien.includes(storedClubId);
+      return item.lien.includes(club_id);
     });
 
     // Ignore if no matchs for this team
@@ -323,7 +392,8 @@ async function computeGlobalResults(teams, targetGroup, targetDate, rowDivGlobal
 
       // console.log(resultTeam)
 
-      const emoji = mapResultsToEmoji(team);
+      // console.log([team, club_id])
+      const emoji = await mapResultsToEmoji(team, club_id);
       if (emoji !== '❓') {
         // resultTeamDetails[team.lien]['atLeastOneMatchDone'] = true
         atLeastOneMatchDone = true;
@@ -382,13 +452,12 @@ async function computeGlobalResults(teams, targetGroup, targetDate, rowDivGlobal
   return [atLeastOneMatchDone, resultTeamDetails];
 }
 
-async function display_rencontre() {
-  // TODO: use get param
-  const selectedValue = $("#type option:selected").val();
+async function display_rencontre(club_id, selectedValue) {
   const groupRegex = /(.+) J\d+ \((.+)\)/;
 
   const matchTextValue = selectedValue.match(groupRegex);
   if (matchTextValue === null) {
+    // already checked in submit
     return
   }
 
@@ -399,10 +468,8 @@ async function display_rencontre() {
   // console.log("Target Date:", targetDate);
 
   // RENCONTRES = [];
-  // TODO: use get param
-  storedClubId = localStorage.getItem('CLUB_ID');
   var teams = await $.ajax({
-    url: '/api/teams?club_id=' + storedClubId,
+    url: '/api/teams?club_id=' + club_id,
     method: 'GET',
   });
 
@@ -418,7 +485,7 @@ async function display_rencontre() {
   const rowDivGlobal = $('<div class="row"></div>'); // Create a new row
   resultsDiv.append(rowDivGlobal)
 
-  const [atLeastOneMatchDone, resultTeamDetails] = await computeGlobalResults(teams, targetGroup, targetDate, rowDivGlobal);
+  const [atLeastOneMatchDone, resultTeamDetails] = await computeGlobalResults(teams, targetGroup, targetDate, rowDivGlobal, club_id);
   // console.log('---')
   // console.log(atLeastOneMatchDone)
   // console.log(resultTeamDetails);
@@ -427,7 +494,7 @@ async function display_rencontre() {
     <hr>
   `)
 
-  console.log([atLeastOneMatchDone, resultTeamDetails])
+  // console.log([atLeastOneMatchDone, resultTeamDetails])
   if (atLeastOneMatchDone === true) {
   resultsDiv.append(`
     <span class=""
@@ -478,7 +545,7 @@ async function display_rencontre() {
       return item.dateprevue === targetDate;
     });
     var finalFilteredTourList = filteredTourList.filter(function (item) {
-      return item.lien.includes(storedClubId);
+      return item.lien.includes(club_id);
     });
 
     // Ignore if no matchs for this team
@@ -518,7 +585,7 @@ async function display_rencontre() {
       }
 
 
-      const emoji = mapResultsToEmoji(team);
+      const emoji = mapResultsToEmoji(team, club_id);
       const colDiv = $(`
         <div class="col-sm-4 teamResultsDetails"></div>
       `); // Create a column element
@@ -605,10 +672,11 @@ async function search() {
     const div = $('<div>').html(club.club_name);
     div.click(async function () {
       input.val(club.club_name);
-      localStorage.setItem('CLUB_NAME', club.club_name);
-      localStorage.setItem('CLUB_ID', club.club_id);
+      $("#search-input-id").val(club.club_id);
       suggestions.hide();
       const club_id = club.club_id;
+      localStorage.setItem('CLUB_ID', club.club_id);
+      localStorage.setItem('CLUB_NAME', club.club_name);
       const teams = await $.ajax({
         url: "/api/teams",
         data: {
@@ -619,10 +687,6 @@ async function search() {
       // console.log(teams);
       compute_matchs_select();
       // Reset rencontres compute on new search club
-      localStorage.removeItem('RENCONTRES');
-      localStorage.removeItem('RENCONTRE_CHOICE');
-      storedRencontres = localStorage.getItem('RENCONTRES');
-      storedRencontreChoice = localStorage.getItem('RENCONTRE_CHOICE');
       await fetchResults(club_id);
     });
     suggestions.append(div);
@@ -641,29 +705,10 @@ function compute_matchs_select() {
   // console.log(club_name)
 }
 
-async function init2() {
+async function initEvents() {
   updateBoxShadow();
+  const selectElement = document.getElementById('type');
   selectElement.addEventListener('change', updateBoxShadow);
-
-  if (storedClubId) {
-    await fetchResults(storedClubId);
-    // console.log(JSON.stringify(RENCONTRES, null, 4));
-  }
-
-  const input = $('#search-input');
-  input.val(storedClubName);
-
-  compute_matchs_select();
-
-  if (storedRencontreChoice) {
-    for (const option of selectElement.options) {
-      if (option.value === storedRencontreChoice) {
-        option.selected = true;
-        break;
-      }
-    }
-    $("button[type=submit]").prop("disabled", false).css("cursor", "pointer");
-  }
 
   // Get the form element
   const searchForm = document.getElementById("search-community");
@@ -682,42 +727,20 @@ async function init2() {
 
   $("button[type=submit]").on("click", async function(event) {
     event.preventDefault(); // Prevent the default form submission
-    await display_rencontre();
+    await submitForm();
   });
 
   document.getElementById('resetButton').addEventListener('click', function() {
-    localStorage.removeItem('CLUB_NAME');
-    localStorage.removeItem('CLUB_ID');
-    localStorage.removeItem('ORGANISME_REGIONAL_IDS');
-    localStorage.removeItem('ORGANISME_DEPARTEMENTAL_IDS');
-    localStorage.removeItem('RENCONTRES');
-    localStorage.removeItem('RENCONTRE_CHOICE');
-    /*
-    storedClubName = localStorage.getItem('CLUB_NAME');
-    storedClubId = localStorage.getItem('CLUB_ID');
-    storedRegionalIds = localStorage.getItem('ORGANISME_REGIONAL_IDS');
-    storedDepartementalIds = localStorage.getItem('ORGANISME_DEPARTEMENTAL_IDS');
-    storedRencontres = localStorage.getItem('RENCONTRES');
-    storedRencontreChoice = localStorage.getItem('RENCONTRE_CHOICE');
-    */
-    var select = $('#type');
-    // $('#type option:selected').remove();
-    select.empty();
-    var option = $('<option>', {
-      value: 'Veuillez choisir un nom de club',
-      text: 'Veuillez choisir un nom de club'
-    });
-    select.append(option);
-    const resultsDiv = $('#results');
-    resultsDiv.empty(); // Clear previous content
-    updateBoxShadow();
+    clean_local_storage();
+    window.location = '/';
   });
+
 }
 
 
 async function init() {
-  await init_organismes_vars();
-  await init2();
+  await initEvents();
+  await fetchGetParams();
 };
 
 // Listen for the pageshow event
