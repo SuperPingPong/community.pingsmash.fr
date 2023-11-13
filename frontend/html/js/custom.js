@@ -585,7 +585,7 @@ async function display_rencontre(club_id, selectedValue) {
       }
 
 
-      const emoji = mapResultsToEmoji(team, club_id);
+      const emoji = await mapResultsToEmoji(team, club_id);
       const colDiv = $(`
         <div class="col-sm-4 teamResultsDetails"></div>
       `); // Create a column element
