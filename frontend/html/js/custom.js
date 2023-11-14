@@ -556,142 +556,156 @@ function display_rencontre(club_id, selectedValue) {
 
         const rowDivDetails = $('<div class="row"></div>'); // Create a new row
         resultsDiv.append(rowDivDetails);
-        for (const team of teams) {
-          // console.log(team)
-          const libdivision = team.libdivision.replace(/phase /gi, 'P');
-          // console.log(libdivision, team)
-          var division = team.liendivision;
-          var matchDivision = division.match(/organisme_pere=(\d+)/);
-          var organisme_id = matchDivision[1];
+        const promises = teams.map(function(team) {
+          return new Promise((resolve, reject) => {
+            // console.log(team)
+            const libdivision = team.libdivision.replace(/phase /gi, 'P');
+            // console.log(libdivision, team)
+            var division = team.liendivision;
+            var matchDivision = division.match(/organisme_pere=(\d+)/);
+            var organisme_id = matchDivision[1];
 
-          var group;
-          if (ORGANISME_NATIONAL_IDS.includes(organisme_id)) {
-              group = 'National';
-          } else if (ORGANISME_REGIONAL_IDS.includes(organisme_id)) {
-              group = 'Régional';
-          } else if (ORGANISME_DEPARTEMENTAL_IDS.includes(organisme_id)) {
-              group = 'Départemental';
-          } else {
-              throw new Error('Unknown group for organisme_id=' + organisme_id);
-          }
+            var group;
+            if (ORGANISME_NATIONAL_IDS.includes(organisme_id)) {
+                group = 'National';
+            } else if (ORGANISME_REGIONAL_IDS.includes(organisme_id)) {
+                group = 'Régional';
+            } else if (ORGANISME_DEPARTEMENTAL_IDS.includes(organisme_id)) {
+                group = 'Départemental';
+            } else {
+                // throw new Error('Unknown group for organisme_id=' + organisme_id);
+                resolve()
+            }
 
-          if (group !== targetGroup) {
-            continue
-          }
+            if (group !== targetGroup) {
+              // continue
+              resolve()
+            }
 
-          // Perform a GET request to retrieve team results
-          $.ajax({
-            url: '/api/team/results?' + division,
-            method: 'GET',
-            success: function(resultData) {
-              var tourList = resultData.liste.tour;
-              var filteredTourList = tourList.filter(function (item) {
-                return item.dateprevue === targetDate;
-              });
-              var finalFilteredTourList = filteredTourList.filter(function (item) {
-                return item.lien.includes(club_id);
-              });
+            // Perform a GET request to retrieve team results
+            $.ajax({
+              url: '/api/team/results?' + division,
+              method: 'GET',
+              success: function(resultData) {
+                var tourList = resultData.liste.tour;
+                var filteredTourList = tourList.filter(function (item) {
+                  return item.dateprevue === targetDate;
+                });
+                var finalFilteredTourList = filteredTourList.filter(function (item) {
+                  return item.lien.includes(club_id);
+                });
 
-              // Ignore if no matchs for this team
-              if (finalFilteredTourList.length === 0) {
-                return
-              }
+                // Ignore if no matchs for this team
+                if (finalFilteredTourList.length === 0) {
+                  // return
+                  resolve()
+                }
 
-              $.ajax({
-                url: '/api/team/rank?' + division,
-                method: 'GET',
-                success: function(resultRank) {
-                  // console.log(finalFilteredTourList)
-                  // console.log(resultRank);
+                $.ajax({
+                  url: '/api/team/rank?' + division,
+                  method: 'GET',
+                  success: function(resultRank) {
+                    // console.log(finalFilteredTourList)
+                    // console.log(resultRank);
 
-                  // Display the results in a div
-                  // console.log(finalFilteredTourList)
-                  const teamResults = finalFilteredTourList.map((team) => {
-                    // console.log(team)
-                    let resultTeam = null;
-                    resultTeam = resultTeamDetails[team.lien]['details']
-                    if (typeof(resultTeam) === 'undefined') {
-                      return
-                    } // HTTP 400 on fetch /api/result_chp_renc, generally no opposite team
-                    // console.log(resultTeam)
+                    // Display the results in a div
+                    // console.log(finalFilteredTourList)
+                    const teamResults = finalFilteredTourList.map((team) => {
+                      // console.log(team)
+                      let resultTeam = null;
+                      resultTeam = resultTeamDetails[team.lien]['details']
+                      if (typeof(resultTeam) === 'undefined') {
+                        return
+                      } // HTTP 400 on fetch /api/result_chp_renc, generally no opposite team
+                      // console.log(resultTeam)
 
-                    // Check if score system is 1-0 or 2-1
-                    // Loop over all matchs to see if 2 exists
-                    let scoreWin;
-                    const hasMatchWithTwoPoints = resultTeam.liste.partie.some(item => {
-                        return item.scorea === "2" || item.scoreb === "2";
-                    });
-                    if (hasMatchWithTwoPoints) {
-                      scoreWin = '2';
-                    } else {
-                      scoreWin = '1';
-                    }
+                      // Check if score system is 1-0 or 2-1
+                      // Loop over all matchs to see if 2 exists
+                      let scoreWin;
+                      const hasMatchWithTwoPoints = resultTeam.liste.partie.some(item => {
+                          return item.scorea === "2" || item.scoreb === "2";
+                      });
+                      if (hasMatchWithTwoPoints) {
+                        scoreWin = '2';
+                      } else {
+                        scoreWin = '1';
+                      }
 
-                    const emoji = mapResultsToEmoji(team, club_id);
-                    const colDiv = $(`
-                      <div class="col-sm-4 teamResultsDetails"></div>
-                    `); // Create a column element
-                    const rankEqua = getRankFromTeam(resultRank, team.equa)
-                    const rankEqub = getRankFromTeam(resultRank, team.equb)
-                    colDiv.html(`
-                      <span style='color: grey'>${libdivision}</span>
-                      <br>${emoji} ${team.equa === null ? "" : team.equa}${rankEqua !== null ? ` (${rankEqua})` : ''} - ${team.equb === null ? "" : team.equb}${rankEqub !== null ? ` (${rankEqub})` : ''}${(team.scorea !== null && team.scoreb !== null) ? ` | <b>${team.scorea}-${team.scoreb}</b>` : ""}
-                      <hr>
-                    `);
+                      const emoji = mapResultsToEmoji(team, club_id);
+                      const colDiv = $(`
+                        <div class="col-sm-4 teamResultsDetails"></div>
+                      `); // Create a column element
+                      const rankEqua = getRankFromTeam(resultRank, team.equa)
+                      const rankEqub = getRankFromTeam(resultRank, team.equb)
+                      colDiv.html(`
+                        <span style='color: grey'>${libdivision}</span>
+                        <br>${emoji} ${team.equa === null ? "" : team.equa}${rankEqua !== null ? ` (${rankEqua})` : ''} - ${team.equb === null ? "" : team.equb}${rankEqub !== null ? ` (${rankEqub})` : ''}${(team.scorea !== null && team.scoreb !== null) ? ` | <b>${team.scorea}-${team.scoreb}</b>` : ""}
+                        <hr>
+                      `);
 
-                    resultTeam.liste.joueur.forEach(player => {
+                      resultTeam.liste.joueur.forEach(player => {
+                          colDiv.append(`
+                            <div style="text-align: center">
+                              ${player.xja === null ? "<i style='color: #212529 !important'>**ABSENT**</i>" : player.xja}<b>${player.xca === null ? "" : ` ${player.xca}`}</b> | ${player.xjb === null ? "<i style='color: #212529 !important'>**ABSENT**</i>" : player.xjb}<b>${player.xcb === null ? "" : ` ${player.xcb}`}</b><br>
+                            </div>
+                          `);
+                      });
+
+                      colDiv.append(`
+                        <hr>
+                      `);
+
+                      // console.log(resultTeam.liste);
+
+                      // Loop through the "partie" array and display match results
+                      resultTeam.liste.partie.forEach(match => {
+                        const valuePlayera = getPlayerValue(resultTeam, match.ja)
+                        const valuePlayerb = getPlayerValue(resultTeam, match.jb)
+                        let emojiPerfa = null;
+                        let emojiPerfb = null;
+                        if (match.scorea === scoreWin && valuePlayerb - valuePlayera >= 50) {
+                          emojiPerfa = "💪";
+                          emojiPerfb = "💥";
+                          // console.log(match.ja, match.jb, emojiPerfa, emojiPerfb)
+                        }
+                        if (match.scoreb === scoreWin && valuePlayera - valuePlayerb >= 50) {
+                          emojiPerfb = "💪";
+                          emojiPerfa = "💥";
+                          // console.log(match.ja, match.jb, emojiPerfa, emojiPerfb)
+                        }
                         colDiv.append(`
-                          <div style="text-align: center">
-                            ${player.xja === null ? "<i style='color: #212529 !important'>**ABSENT**</i>" : player.xja}<b>${player.xca === null ? "" : ` ${player.xca}`}</b> | ${player.xjb === null ? "<i style='color: #212529 !important'>**ABSENT**</i>" : player.xjb}<b>${player.xcb === null ? "" : ` ${player.xcb}`}</b><br>
+                          <div style="">
+                            ${match.ja === null ? `<span><i style="color: red !important">**ABSENT**</i></span> <b>0 - ` : `<span style="color: ${match.scorea === scoreWin ? 'green': 'red'}">${emojiPerfa !== null ? `${emojiPerfa} `: ''}${match.ja}</span> <b>${match.scorea === '-' ? 0 : match.scorea} - `}
+                            ${match.jb === null ? ` 0</b> <span><i style="color: red !important">**ABSENT**</i></span>` : `${match.scoreb === '-' ? 0 : match.scoreb}</b> <span style="color: ${match.scoreb === scoreWin ? 'green': 'red'}">${match.jb}${emojiPerfb !== null ? ` ${emojiPerfb}`: ''}</span>`}
+                            ${(match.ja !== null && match.jb !== null) ? `<span style="color: grey"> (${match.detail})</span>` : ''}
+                            <br>
                           </div>
                         `);
-                    });
-
-                    colDiv.append(`
-                      <hr>
-                    `);
-
-                    // console.log(resultTeam.liste);
-
-                    // Loop through the "partie" array and display match results
-                    resultTeam.liste.partie.forEach(match => {
-                      const valuePlayera = getPlayerValue(resultTeam, match.ja)
-                      const valuePlayerb = getPlayerValue(resultTeam, match.jb)
-                      let emojiPerfa = null;
-                      let emojiPerfb = null;
-                      if (match.scorea === scoreWin && valuePlayerb - valuePlayera >= 50) {
-                        emojiPerfa = "💪";
-                        emojiPerfb = "💥";
-                        // console.log(match.ja, match.jb, emojiPerfa, emojiPerfb)
-                      }
-                      if (match.scoreb === scoreWin && valuePlayera - valuePlayerb >= 50) {
-                        emojiPerfb = "💪";
-                        emojiPerfa = "💥";
-                        // console.log(match.ja, match.jb, emojiPerfa, emojiPerfb)
-                      }
+                      });
                       colDiv.append(`
-                        <div style="">
-                          ${match.ja === null ? `<span><i style="color: red !important">**ABSENT**</i></span> <b>0 - ` : `<span style="color: ${match.scorea === scoreWin ? 'green': 'red'}">${emojiPerfa !== null ? `${emojiPerfa} `: ''}${match.ja}</span> <b>${match.scorea === '-' ? 0 : match.scorea} - `}
-                          ${match.jb === null ? ` 0</b> <span><i style="color: red !important">**ABSENT**</i></span>` : `${match.scoreb === '-' ? 0 : match.scoreb}</b> <span style="color: ${match.scoreb === scoreWin ? 'green': 'red'}">${match.jb}${emojiPerfb !== null ? ` ${emojiPerfb}`: ''}</span>`}
-                          ${(match.ja !== null && match.jb !== null) ? `<span style="color: grey"> (${match.detail})</span>` : ''}
-                          <br>
-                        </div>
+                        <hr>
                       `);
+                      resolve(colDiv)
                     });
-                    colDiv.append(`
-                      <hr>
-                    `);
-                    rowDivDetails.append(colDiv); // Append the column to the current row
-                  });
-                }
-              });
+                  }
+                });
+              }
+            });
+          })
+        })
 
-            }
-          });
-        };
-        resultsDiv.append(`
-          <hr>
-        `)
+        Promise.all(promises)
+         .then((colDivs) => {
+           for (colDiv of colDivs) {
+             if (colDiv !== undefined) {
+               rowDivDetails.append(colDiv)
+             }
+           }
+           // resolve();
+           resultsDiv.append(`
+             <hr>
+           `)
+         })
         }
       });
     }
