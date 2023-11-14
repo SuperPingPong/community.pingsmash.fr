@@ -237,7 +237,8 @@ def get_team_matchs():
     for param in mandatory_params:
         param_value = request.args.get(param, "")
         if not param_value:
-            abort(400)
+            #  abort(400)
+            return json.dumps({}), 200, {'Content-Type': 'application/json; charset=utf-8'}
         params[param] = param_value
     url = "https://fftt.dafunker.com/v1//proxy/xml_chp_renc.php"
     response = session.get(url, params=params)

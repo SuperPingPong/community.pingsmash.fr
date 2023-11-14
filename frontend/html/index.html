@@ -65,10 +65,20 @@
             <div class="formbg-outer">
                 <div class="formbg">
                     <div id="anonymous-form" class="formbg-inner padding-horizontal--48">
-                        <span class="padding-bottom--24"
-                              style="text-align: center; font-size: 20px; line-height: 28px; display: block">
-                             📲 🔗 📸🤳 Critères de recherche - Community
-                        </span>
+
+                        <div class="row">
+                            <div class="col-sm-11">
+                                <span class="padding-bottom--24"
+                                      style="text-align: center; font-size: 20px; line-height: 28px; display: block">
+                                     📲 🔗 📸🤳 Critères de recherche - Community
+                                </span>
+                            </div>
+                            <div class="col-sm-1">
+                                <button class="btn btn-primary" type="share" onclick="copyToClipboard()"
+                                        style="button:hover: rgb(64, 85, 172);">Partager
+                                </button>
+                            </div>
+                        </div>
 
                         <form id="search-community" method="POST">
 
@@ -135,5 +145,7 @@
         integrity="sha384-JjSmVgyd0p3pXB1rRibZUAYoIIy6OrQ6VrjIEaFf/nJGzIxFDsf4x0xIM+B07jRM"
         crossorigin="anonymous"></script>
 <script src="/js/custom.js"></script>
+<script src="/js/custom-display.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 </body>
 </html>
