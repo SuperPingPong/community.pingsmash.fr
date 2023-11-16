@@ -615,7 +615,7 @@ function display_rencontre(club_id, selectedValue) {
                       let resultTeam = null;
                       resultTeam = resultTeamDetails[team.lien]['details']
                       if (typeof(resultTeam) === 'undefined') {
-                        return
+                        resolve()
                       } // HTTP 400 on fetch /api/result_chp_renc, generally no opposite team
                       // console.log(resultTeam)
 
