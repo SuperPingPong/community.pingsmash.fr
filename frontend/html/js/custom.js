@@ -467,12 +467,17 @@ function computeGlobalResults(teams, targetGroup, targetDate, club_id) {
                         // /result_chp_renc and /team/rank does not map equa and equb so same team sometime
                         // fixing this edge case
                         let customTeamScorea, customTeamScoreb
-                        if (team.equa == resultTeam.liste.resultat.equa) {
-                          customTeamScorea = teamScorea
-                          customTeamScoreb = teamScoreb
+                        if (typeof(resultTeam.liste) !== 'undefined') {
+                          if (team.equa == resultTeam.liste.resultat.equa) {
+                            customTeamScorea = teamScorea
+                            customTeamScoreb = teamScoreb
+                          } else {
+                            customTeamScorea = teamScoreb
+                            customTeamScoreb = teamScorea
+                          }
                         } else {
-                          customTeamScorea = teamScoreb
-                          customTeamScoreb = teamScorea
+                          customTeamScorea = ''
+                          customTeamScoreb = ''
                         }
 
                         colDiv.html(`
