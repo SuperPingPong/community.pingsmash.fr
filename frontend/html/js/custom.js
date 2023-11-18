@@ -464,9 +464,20 @@ function computeGlobalResults(teams, targetGroup, targetDate, club_id) {
 
                         }
 
+                        // /result_chp_renc and /team/rank does not map equa and equb so same team sometime
+                        // fixing this edge case
+                        let customTeamScorea, customTeamScoreb
+                        if (team.equa == resultTeam.liste.resultat.equa) {
+                          customTeamScorea = teamScorea
+                          customTeamScoreb = teamScoreb
+                        } else {
+                          customTeamScorea = teamScoreb
+                          customTeamScoreb = teamScorea
+                        }
+
                         colDiv.html(`
                           <span style='color: grey'>${libdivision}</span>
-                          <br>${emoji} ${team.equa === null ? "" : team.equa}${rankEqua !== null ? ` (${rankEqua})` : ''} - ${team.equb === null ? "" : team.equb}${rankEqub !== null ? ` (${rankEqub})` : ''}${(team.scorea !== null && team.scoreb !== null) ? ` | <b>${teamScorea}-${teamScoreb}</b>` : ""}
+                          <br>${emoji} ${team.equa === null ? "" : team.equa}${rankEqua !== null ? ` (${rankEqua})` : ''} - ${team.equb === null ? "" : team.equb}${rankEqub !== null ? ` (${rankEqub})` : ''}${(team.scorea !== null && team.scoreb !== null) ? ` | <b>${customTeamScorea}-${customTeamScoreb}</b>` : ""}
                         `);
                         resolve(colDiv)
                       },
@@ -637,6 +648,7 @@ function display_rencontre(club_id, selectedValue) {
                       `); // Create a column element
                       const rankEqua = getRankFromTeam(resultRank, team.equa)
                       const rankEqub = getRankFromTeam(resultRank, team.equb)
+
                       colDiv.html(`
                         <span style='color: grey'>${libdivision}</span>
                         <br>${emoji} ${team.equa === null ? "" : team.equa}${rankEqua !== null ? ` (${rankEqua})` : ''} - ${team.equb === null ? "" : team.equb}${rankEqub !== null ? ` (${rankEqub})` : ''}${(team.scorea !== null && team.scoreb !== null) ? ` | <b>${team.scorea}-${team.scoreb}</b>` : ""}
