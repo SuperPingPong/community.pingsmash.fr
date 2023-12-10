@@ -166,6 +166,12 @@ function fetchResults(clubId, rencontre_choice) {
             // console.log(rencontres);
             rencontres.forEach(function(date, index) {
                 var field = `${group} J${1+index} (${date})`;
+                /*
+                if (team.libepr !== 'FED_Championnat de France par Equipes Masculin') {
+                  field += ' - ' + team.libepr
+                }
+                */
+                field += ' - ' + team.libepr
                 // console.log(`${group} J${1+index} (${date})`);
                 if (!result.includes(field)) {
                     result.push(field);
