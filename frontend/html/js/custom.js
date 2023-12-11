@@ -449,7 +449,9 @@ function computeGlobalResults(teams, targetGroup, targetDate, club_id, club_name
                           resultTeam.liste.partie.forEach(partie => {
                             if (partie.ja !== null) {
                               if (scoreWin === '2') {
-                                teamScorea += Math.max(0, parseInt(partie.scorea) - 1);
+                                if (!isNaN(parseInt(partie.scorea))) {
+                                  teamScorea += Math.max(0, parseInt(partie.scorea) - 1);
+                                }
                               } else {
                                 const scorea = parseInt(partie.scorea);
                                 teamScorea += isNaN(scorea) ? 0 : scorea;
@@ -460,7 +462,9 @@ function computeGlobalResults(teams, targetGroup, targetDate, club_id, club_name
                           resultTeam.liste.partie.forEach(partie => {
                             if (partie.jb !== null) {
                               if (scoreWin === '2') {
-                                teamScoreb += Math.max(0, parseInt(partie.scoreb) - 1);
+                                if (!isNaN(parseInt(partie.scoreb))) {
+                                  teamScoreb += Math.max(0, parseInt(partie.scoreb) - 1);
+                                }
                               } else {
                                 const scoreb = parseInt(partie.scoreb);
                                 teamScoreb += isNaN(scoreb) ? 0 : scoreb;
