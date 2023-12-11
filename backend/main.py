@@ -327,11 +327,10 @@ def get_teams_perfs():
 
     group_regex = re.compile(r'(.+) J\d+ \((.+)\)')
     match_text_value = group_regex.match(RENCONTRE_CHOICE)
-    #  group = match_text_value.group(1)
+    TARGET_GROUP = match_text_value.group(1)
     DATE_PREVUE = match_text_value.group(2)
 
-    """
-    ORGANISME_NATIONAL_IDS = ['1']
+    ORGANISME_NATIONAL_IDS = ['1', '4']
     ORGANISME_REGIONAL, _, _ = format_response(get_organismes('L'))
     ORGANISME_REGIONAL_IDS = [
         item.get('id') for item in json.loads(ORGANISME_REGIONAL)['liste']['organisme']
@@ -340,14 +339,13 @@ def get_teams_perfs():
     ORGANISME_DEPARTEMENTAL_IDS = [
         item.get('id') for item in json.loads(ORGANISME_DEPARTEMENTAL)['liste']['organisme']
     ]
-    """
 
     _, teams = get_teams(CLUB_ID)
     PERFS = []
 
     for team in teams:
+        print(team)
         division = team.get('liendivision')
-        """
         pattern = r'organisme_pere=(\d+)'
         match = re.search(pattern, division)
         organisme_id = str(match.group(1))
@@ -360,7 +358,11 @@ def get_teams_perfs():
             group = 'Départemental'
         else:
             raise Exception(f'Unknown group for organisme_id={organisme_id}')
-        """
+
+        # Filter on group
+        if TARGET_GROUP != group:
+            continue
+
         result_params_dict = {
           item.split('=')[0]:item.split('=')[1] for item in division.split('&')
         }
@@ -371,21 +373,31 @@ def get_teams_perfs():
                 continue
             match_params=rencontre.get('lien')
             match_params_dict = {
-              item.split('=')[0]:item.split('=')[1] for item in match_params.split('&')
+              item.split('=')[0]:item.split('=')[1].replace('+', ' ') for item in match_params.split('&')
             }
             matchs, _, _ = format_response(get_team_matchs_query(match_params_dict))
             matchs = json.loads(matchs)
 
             # Filter on matchs from club_id
-            is_equa = match_params_dict['clubnum_1'] == str(CLUB_ID)
-            is_equb = match_params_dict['clubnum_2'] == str(CLUB_ID)
-            if not is_equa and not is_equb:
+            is_equ1 = match_params_dict['clubnum_1'] == str(CLUB_ID)
+            is_equ2 = match_params_dict['clubnum_2'] == str(CLUB_ID)
+            if not is_equ1 and not is_equ2:
                 continue
             players = matchs['liste']['joueur']
-            if is_equa:
-                player_names = [p['xja'] for p in players]
+            # Sometimes clubnum_1 is not mapped to equa
+            equa = matchs['liste']['resultat']['equa']
+            #  equb = matchs['liste']['resultat']['equb']
+            if match_params_dict['equip_1'] == equa:
+                if is_equ1:
+                  player_names = [p['xja'] for p in players]
+                else:
+                  player_names = [p['xjb'] for p in players]
             else:
-                player_names = [p['xjb'] for p in players]
+                if is_equ1:
+                  player_names = [p['xjb'] for p in players]
+                else:
+                  player_names = [p['xja'] for p in players]
+
             for name in player_names:
                 player_info = utils.get_player_info(session, CLUB_NAME, name)
                 player_license = player_info['license']
@@ -420,6 +432,9 @@ def get_teams_perfs():
                     if player.get('opposite_team_player_name') is None:
                         continue
                     if player.get('team_player_name') is None:
+                        continue
+                    # Perf must be a victory
+                    if match.get('ex', 0) <= 0:
                         continue
                     PERFS.append(dict(name=name, player=player, match=match))
 

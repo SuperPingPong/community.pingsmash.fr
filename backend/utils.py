@@ -13,7 +13,7 @@ import xml.etree.ElementTree as ET
 from typing import Dict, Tuple
 
 def extract_int(s):
-    return int(re.search(r"\d+", s).group())
+    return int(re.findall(r"(\d+)pts$", s)[0])
 
 def convert_to_float(string_value):
     float_value = float(string_value)
