@@ -373,7 +373,8 @@ def get_teams_perfs():
                 continue
             match_params=rencontre.get('lien')
             match_params_dict = {
-              item.split('=')[0]:unquote(item.split('=')[1].replace('+', ' ')) for item in match_params.split('&')
+              item.split('=')[0]:unquote(item.split('=')[1].replace('+', ' '))
+              for item in match_params.split('&')
             }
             matchs, _, _ = format_response(get_team_matchs_query(match_params_dict))
             matchs = json.loads(matchs)
