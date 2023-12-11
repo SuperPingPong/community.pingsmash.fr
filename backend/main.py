@@ -327,7 +327,7 @@ def get_teams_perfs():
 
     group_regex = re.compile(r'(.+) J\d+ \((.+)\)')
     match_text_value = group_regex.match(RENCONTRE_CHOICE)
-    group = match_text_value.group(1)
+    #  group = match_text_value.group(1)
     DATE_PREVUE = match_text_value.group(2)
 
     """
@@ -342,7 +342,7 @@ def get_teams_perfs():
     ]
     """
 
-    teams = get_teams(CLUB_ID)
+    _, teams = get_teams(CLUB_ID)
     PERFS = []
 
     for team in teams:
@@ -397,6 +397,7 @@ def get_teams_perfs():
                         journee['date'] == DATE_PREVUE for journee in entry.get('journees', [])
                     )
                 ][0]['journees'][0]['matchs']
+                # TODO: check if matchs are always published if we get some results from teams
                 for match in filtered_matchs:
                     player = {}
                     for p in players:
@@ -422,7 +423,10 @@ def get_teams_perfs():
         ),
         reverse=True
     )
-    RESULT = PERFS[:8]
+    # TODO: return how many matchs processed vs total
+    # check when there is missing matchs as well
+    # TODO: display for each perf the division ?
+    RESULT = PERFS[:6]
     RESULT_DISPLAY=[]
     MEDALS = ['🥇', '🥈', '🥉']
     DEFAULT_MEDAL = '🏓'
