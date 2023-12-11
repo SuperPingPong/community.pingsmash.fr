@@ -40,7 +40,7 @@ function fetchGetParams() {
     $('#search-input-id').val(qs.club_id);
     fetchResults(qs.club_id, qs.rencontre_choice);
     // console.log($("#type option:selected").val());
-    display_rencontre(qs.club_id, qs.rencontre_choice);
+    display_rencontre(qs.club_id, qs.club_name, qs.rencontre_choice);
 
   } else {
     const storedClubId = localStorage.getItem('CLUB_ID');
@@ -342,7 +342,7 @@ function getPlayerValue(resultTeam, playerName) {
   return null; // or any other default value
 }
 
-function computeGlobalResults(teams, targetGroup, targetDate, club_id) {
+function computeGlobalResults(teams, targetGroup, targetDate, club_id, club_name, rencontre_choice) {
   return new Promise((resolve, reject) => {
     let atLeastOneMatchDone = false;
     let resultTeamDetails = {};
@@ -488,7 +488,7 @@ function computeGlobalResults(teams, targetGroup, targetDate, club_id) {
 
                         colDiv.html(`
                           <span style='color: grey'>${libdivision}</span>
-                          <br>${emoji} ${team.equa === null ? "" : team.equa}${rankEqua !== null ? ` (${rankEqua})` : ''} - ${team.equb === null ? "" : team.equb}${rankEqub !== null ? ` (${rankEqub})` : ''}${(team.scorea !== null && team.scoreb !== null) ? ` | <b>${customTeamScorea}-${customTeamScoreb}</b>` : ""}
+                          <br>${emoji} ${team.equa === null ? "" : team.equa.replace(/ /g, '\u00A0')}${rankEqua !== null ? ` (${rankEqua})` : ''} - ${team.equb === null ? "" : team.equb.replace(/ /g, '\u00A0')}${rankEqub !== null ? ` (${rankEqub})` : ''}${(team.scorea !== null && team.scoreb !== null) ? ` | <b>${customTeamScorea}-${customTeamScoreb}</b>` : ""}
                         `);
                         resolve(colDiv)
                       },
@@ -506,19 +506,75 @@ function computeGlobalResults(teams, targetGroup, targetDate, club_id) {
     });
     // console.log(promises)
     const rowDivGlobal = $('<div class="row"></div>');
+    const colDivGlobalResults = $('<div class="col-sm-8"></div>');
+    colDivGlobalResults.append(`
+      <hr>
+      <span class="padding-bottom--24"
+        style="text-align: center; font-size: 20px; line-height: 28px; display: block"
+      >
+        🏆 Résultats généraux 🏆
+      </span>
+    `)
+    const colDivGlobalPerfs = $('<div class="col-sm-4"></div>');
+    const headerColDivGlobalPerfs = `
+      <hr>
+      <span class="padding-bottom--24"
+        style="text-align: center; font-size: 20px; line-height: 28px; display: block"
+      >
+        🏆 Meilleurs Perfs 🏆
+      </span>
+    `
+    colDivGlobalPerfs.append(headerColDivGlobalPerfs);
+    const rowDivGlobalResults = $('<div class="row"></div>');
+    const rowDivGlobalPerfs = $('<div class="row"></div>');
+    const defaultPerf = $(`
+<div class="col-sm-12 d-flex align-items-center justify-content-center">
+  <div class="text-center">
+    <div class="spinner-border" role="status">
+      <span class="sr-only">Loading...</span>
+    </div>
+  </div>
+</div>
+
+    `); // Create a column element
+    // defaultPerf.empty();
     Promise.all(promises)
     .then((colDivs) => {
+
       for (colDiv of colDivs) {
         if (colDiv !== undefined) {
-          rowDivGlobal.append(colDiv)
+          rowDivGlobalResults.append(colDiv)
         }
       }
+      rowDivGlobalPerfs.append(defaultPerf)
+      colDivGlobalResults.append(rowDivGlobalResults)
+      colDivGlobalPerfs.append(rowDivGlobalPerfs)
+      rowDivGlobal.append(colDivGlobalResults)
+      rowDivGlobal.append(colDivGlobalPerfs)
+
+      // Compute content for rowDivGlobalPerfs
+      $.ajax({
+        url: `/api/result_perfs?club_id=${club_id}&club_name=${club_name}&rencontre_choice=${encodeURIComponent(rencontre_choice)}`,
+        method: 'GET',
+        success: function(perfs) {
+          const $ul = $('<ul>');
+          perfs.forEach(perf => {
+            const $li = $('<li class="teamResultsGlobal">').text(perf);
+            $ul.append($li);
+          });
+          colDivGlobalPerfs.empty();
+          colDivGlobalPerfs.append(headerColDivGlobalPerfs);
+          colDivGlobalPerfs.append($ul);
+        }
+      });
+
       resolve([atLeastOneMatchDone, resultTeamDetails, rowDivGlobal])
     })
+
   });
 }
 
-function display_rencontre(club_id, selectedValue) {
+function display_rencontre(club_id, club_name, selectedValue) {
   const groupRegex = /(.+) J\d+ \((.+)\)/;
 
   const matchTextValue = selectedValue.match(groupRegex);
@@ -539,16 +595,9 @@ function display_rencontre(club_id, selectedValue) {
     method: 'GET',
     success: function(teams) {
 
-      computeGlobalResults(teams, targetGroup, targetDate, club_id).then(result => {
+      computeGlobalResults(teams, targetGroup, targetDate, club_id, club_name, selectedValue).then(result => {
         const resultsDiv = $('#results');
         resultsDiv.empty(); // Clear previous content
-        resultsDiv.append(`
-          <span class="padding-bottom--24"
-            style="text-align: center; font-size: 20px; line-height: 28px; display: block"
-          >
-             🏆 Résultats généraux 🏆
-          </span>
-        `)
         let atLeastOneMatchDone, resultTeamDetails, rowDivGlobal;
         [atLeastOneMatchDone, resultTeamDetails, rowDivGlobal] = result
         // console.log([atLeastOneMatchDone, resultTeamDetails, rowDivGlobal])
