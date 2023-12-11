@@ -141,14 +141,14 @@ def get_teams(club_id: str):
     response = session.get(url, params={})
     result = json.loads(response.content)
     sorted_result = sorted(result, key=lambda x: int(re.findall(r'(\d+)', x["libequipe"])[0]))
-    return sorted_result
+    return response, sorted_result
 
 @app.route("/api/teams", methods=['GET', 'OPTIONS'])
 def list_teams():
     club_id = request.args.get("club_id", "")
     if not club_id:
         abort(400)
-    sorted_result = get_teams(club_id)
+    response, sorted_result = get_teams(club_id)
     """
     [
       ...
