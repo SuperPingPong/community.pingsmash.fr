@@ -562,7 +562,7 @@ function computeGlobalResults(teams, targetGroup, targetDate, club_id, club_name
         method: 'GET',
         success: function(perfs) {
           const $ul = $('<ul>');
-          perfs.forEach(perf => {
+          perfs.result_display.forEach(perf => {
             const $li = $('<li class="teamResultsGlobal">').text(perf);
             $ul.append($li);
           });

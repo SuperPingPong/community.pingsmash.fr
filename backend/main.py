@@ -343,8 +343,11 @@ def get_teams_perfs():
 
     _, teams = get_teams(CLUB_ID)
     PERFS = []
+    TOTAL_MATCHS_TEAM = 0
+    TOTAL_MATCHS_TEAM_PROCESSED = 0
 
     for team in teams:
+        libdivision = team.get('libdivision')
         division = team.get('liendivision')
         pattern = r'organisme_pere=(\d+)'
         match = re.search(pattern, division)
@@ -367,7 +370,6 @@ def get_teams_perfs():
           item.split('=')[0]:item.split('=')[1] for item in division.split('&')
         }
         rencontres, _, _ = format_response(get_team_results_query(result_params_dict['D1'], result_params_dict['cx_poule']))
-        matchs = []
         for rencontre in json.loads(rencontres)['liste']['tour']:
             if rencontre.get('dateprevue') != DATE_PREVUE:
                 continue
@@ -403,6 +405,13 @@ def get_teams_perfs():
             if player_names == [None] * len(player_names):
                 continue
 
+            if matchs.get('liste', {}).get('partie', []) is not None:
+              TOTAL_MATCHS_TEAM+=len([
+                  m for m in matchs.get('liste', {}).get('partie', [])
+                  if (m['ja'] is not None and m['jb'] is not None) and
+                  (' et ' not in m['ja'] and ' et ' not in m['jb'])
+              ])
+
             for name in player_names:
                 player_info = utils.get_player_info(session, CLUB_NAME, name)
                 player_license = player_info['license']
@@ -421,16 +430,16 @@ def get_teams_perfs():
                 for match in filtered_matchs:
                     player = {}
                     for p in players:
-                        if p['xja'] == name:
+                        if p['xja'].lower() == name.lower():
                             player['team_player_name'] = p['xja']
                             player['team_player_score'] = p['xca']
-                        if p['xjb'] == name:
+                        if p['xjb'].lower() == name.lower():
                             player['team_player_name'] = p['xjb']
                             player['team_player_score'] = p['xcb']
-                        if p['xja'] == match['nom']:
+                        if p['xja'].lower() == match['nom'].encode('latin-1').decode('utf-8').lower():
                             player['opposite_team_player_name'] = p['xja']
                             player['opposite_team_player_score'] = p['xca']
-                        if p['xjb'] == match['nom']:
+                        if p['xjb'].lower() == match['nom'].encode('latin-1').decode('utf-8').lower():
                             player['opposite_team_player_name'] = p['xjb']
                             player['opposite_team_player_score'] = p['xcb']
                     # Manage if there is some matchs if absent player
@@ -438,10 +447,11 @@ def get_teams_perfs():
                         continue
                     if player.get('team_player_name') is None:
                         continue
+                    TOTAL_MATCHS_TEAM_PROCESSED += 1
                     # Perf must be a victory
                     if match.get('ex', 0) <= 0:
                         continue
-                    PERFS.append(dict(name=name, player=player, match=match))
+                    PERFS.append(dict(libdivision=libdivision, name=name, player=player, match=match))
 
     PERFS = sorted(
         PERFS,
@@ -451,11 +461,13 @@ def get_teams_perfs():
         ),
         reverse=True
     )
-    # TODO: return how many matchs processed vs total
-    # check when there is missing matchs as well
     # TODO: display for each perf the division ?
     RESULT = PERFS[:6]
-    RESULT_DISPLAY=[]
+    RESULT_DISPLAY={
+        'total_matchs_team': TOTAL_MATCHS_TEAM,
+        'total_matchs_team_processed': TOTAL_MATCHS_TEAM_PROCESSED,
+        'result_display': []
+    }
     MEDALS = ['🥇', '🥈', '🥉']
     DEFAULT_MEDAL = '🏓'
     for key, result in enumerate(RESULT):
@@ -463,11 +475,12 @@ def get_teams_perfs():
         medal = MEDALS[key]
       else:
         medal = DEFAULT_MEDAL
-      RESULT_DISPLAY.append(
+      RESULT_DISPLAY['result_display'].append(
           f'{medal} (+{utils.convert_to_float(result["match"]["ex"])}) {result["player"]["team_player_name"]} ({utils.extract_int(result["player"]["team_player_score"])}pts)' + \
           ' VS ' \
           f'{result["player"]["opposite_team_player_name"]} ({utils.extract_int(result["player"]["opposite_team_player_score"])}pts)'
       )
+      RESULT_DISPLAY['libdivision'] = result['libdivision']
     return json.dumps(RESULT_DISPLAY), 200, {'Content-Type': 'application/json; charset=utf-8'}
 
 
