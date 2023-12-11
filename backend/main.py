@@ -461,7 +461,6 @@ def get_teams_perfs():
         ),
         reverse=True
     )
-    # TODO: display for each perf the division ?
     RESULT = PERFS[:6]
     RESULT_DISPLAY={
         'total_matchs_team': TOTAL_MATCHS_TEAM,
@@ -475,12 +474,12 @@ def get_teams_perfs():
         medal = MEDALS[key]
       else:
         medal = DEFAULT_MEDAL
-      RESULT_DISPLAY['result_display'].append(
-          f'{medal} (+{utils.convert_to_float(result["match"]["ex"])}) {result["player"]["team_player_name"]} ({utils.extract_int(result["player"]["team_player_score"])}pts)' + \
-          ' VS ' \
-          f'{result["player"]["opposite_team_player_name"]} ({utils.extract_int(result["player"]["opposite_team_player_score"])}pts)'
-      )
-      RESULT_DISPLAY['libdivision'] = result['libdivision']
+      RESULT_DISPLAY['result_display'].append({
+          'result': f'{medal} (+{utils.convert_to_float(result["match"]["ex"])}) {result["player"]["team_player_name"]} ({utils.extract_int(result["player"]["team_player_score"])}pts)' + \
+            ' VS ' \
+            f'{result["player"]["opposite_team_player_name"]} ({utils.extract_int(result["player"]["opposite_team_player_score"])}pts)',
+          'libdivision': result['libdivision']
+      })
     return json.dumps(RESULT_DISPLAY), 200, {'Content-Type': 'application/json; charset=utf-8'}
 
 
