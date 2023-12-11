@@ -386,18 +386,21 @@ def get_teams_perfs():
                 player_names = [p['xja'] for p in players]
             else:
                 player_names = [p['xjb'] for p in players]
-            #  print(player_names)
             for name in player_names:
                 player_info = utils.get_player_info(session, CLUB_NAME, name)
                 player_license = player_info['license']
                 player_matchs = utils.get_player_matchs(session, player_license)
                 # Filter matchs for a specific date
                 filtered_matchs = [
-                    entry for entry in player_matchs['list'] if any(
-                        journee['date'] == DATE_PREVUE for journee in entry.get('journees', [])
-                    )
-                ][0]['journees'][0]['matchs']
-                # TODO: check if matchs are always published if we get some results from teams
+                    journee['matchs']
+                    for entry in player_matchs['list']
+                    for journee in entry.get('journees', {})
+                    if journee.get('date') == DATE_PREVUE
+                ]
+                if len(filtered_matchs) == 0:
+                    filtered_matchs = []
+                else:
+                  filtered_matchs = filtered_matchs[0]
                 for match in filtered_matchs:
                     player = {}
                     for p in players:
@@ -413,6 +416,11 @@ def get_teams_perfs():
                         if p['xjb'] == match['nom']:
                             player['opposite_team_player_name'] = p['xjb']
                             player['opposite_team_player_score'] = p['xcb']
+                    # Manage if there is some matchs if absent player
+                    if player.get('opposite_team_player_name') is None:
+                        continue
+                    if player.get('team_player_name') is None:
+                        continue
                     PERFS.append(dict(name=name, player=player, match=match))
 
     PERFS = sorted(
