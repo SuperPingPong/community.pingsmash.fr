@@ -6,6 +6,7 @@ import json
 import re
 import requests
 import urllib3
+from urllib.parse import unquote
 
 from utils import format_response
 import utils
@@ -344,7 +345,6 @@ def get_teams_perfs():
     PERFS = []
 
     for team in teams:
-        print(team)
         division = team.get('liendivision')
         pattern = r'organisme_pere=(\d+)'
         match = re.search(pattern, division)
@@ -373,7 +373,7 @@ def get_teams_perfs():
                 continue
             match_params=rencontre.get('lien')
             match_params_dict = {
-              item.split('=')[0]:item.split('=')[1].replace('+', ' ') for item in match_params.split('&')
+              item.split('=')[0]:unquote(item.split('=')[1].replace('+', ' ')) for item in match_params.split('&')
             }
             matchs, _, _ = format_response(get_team_matchs_query(match_params_dict))
             matchs = json.loads(matchs)
@@ -397,6 +397,10 @@ def get_teams_perfs():
                   player_names = [p['xjb'] for p in players]
                 else:
                   player_names = [p['xja'] for p in players]
+
+            # Manage if there is no opposite team
+            if player_names == [None] * len(player_names):
+                continue
 
             for name in player_names:
                 player_info = utils.get_player_info(session, CLUB_NAME, name)
