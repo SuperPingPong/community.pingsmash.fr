@@ -8,6 +8,7 @@ import requests
 import urllib3
 
 from utils import format_response
+import utils
 
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
@@ -48,6 +49,10 @@ def select_club():
     }
     return json.dumps(result), 200, {'Content-Type': 'application/json; charset=utf-8'}
 
+def get_organismes(organisme_type: str):
+    url = "https://fftt.dafunker.com/v1//proxy/xml_organisme.php"
+    response = session.get(url, params={"type": organisme_type})
+    return response
 
 @app.route("/api/organismes", methods=['GET', 'OPTIONS'])
 def list_organismes():
@@ -61,8 +66,7 @@ def list_organismes():
     """
     if not organisme_type:
         abort(400)
-    url = "https://fftt.dafunker.com/v1//proxy/xml_organisme.php"
-    response = session.get(url, params={"type": organisme_type})
+    response = get_organismes(organisme_type)
     """
     {
       "liste": {
@@ -132,16 +136,19 @@ def list_divisions():
     """
     return format_response(response)
 
+def get_teams(club_id: str):
+    url = f"https://fftt.dafunker.com/v1/club/{club_id}/equipes"
+    response = session.get(url, params={})
+    result = json.loads(response.content)
+    sorted_result = sorted(result, key=lambda x: int(re.findall(r'(\d+)', x["libequipe"])[0]))
+    return sorted_result
 
 @app.route("/api/teams", methods=['GET', 'OPTIONS'])
 def list_teams():
     club_id = request.args.get("club_id", "")
     if not club_id:
         abort(400)
-    url = f"https://fftt.dafunker.com/v1/club/{club_id}/equipes"
-    response = session.get(url, params={})
-    result = json.loads(response.content)
-    sorted_result = sorted(result, key=lambda x: int(re.findall(r'(\d+)', x["libequipe"])[0]))
+    sorted_result = get_teams(club_id)
     """
     [
       ...
@@ -159,6 +166,15 @@ def list_teams():
     return json.dumps(sorted_result), response.status_code, {'Content-Type': 'application/json; charset=utf-8'}
 
 
+def get_team_results_query(division_id: str, poule_id: str):
+    url = "https://fftt.dafunker.com/v1//proxy/xml_result_equ.php"
+    response = session.get(url, params={
+        "force": 1,
+        "D1": division_id,
+        "cx_poule": poule_id,
+    })
+    return response
+
 @app.route("/api/team/results", methods=['GET', 'OPTIONS'])
 def get_team_results():
     division_id = request.args.get("D1", "")
@@ -166,12 +182,7 @@ def get_team_results():
     if not division_id or not poule_id:
         abort(400)
 
-    url = "https://fftt.dafunker.com/v1//proxy/xml_result_equ.php"
-    response = session.get(url, params={
-        "force": 1,
-        "D1": division_id,
-        "cx_poule": poule_id,
-    })
+    response = get_team_results_query(division_id, poule_id)
     """
     {
       "liste": {
@@ -187,7 +198,7 @@ def get_team_results():
             "datereelle": "29/09/2023"
           },
           ...
-        
+
     """
     return format_response(response)
 
@@ -226,6 +237,11 @@ def get_team_rank():
     return format_response(response)
 
 
+def get_team_matchs_query(params):
+    url = "https://fftt.dafunker.com/v1//proxy/xml_chp_renc.php"
+    response = session.get(url, params=params)
+    return response
+
 @app.route("/api/result_chp_renc", methods=['GET', 'OPTIONS'])
 def get_team_matchs():
     mandatory_params = [
@@ -240,8 +256,8 @@ def get_team_matchs():
             #  abort(400)
             return json.dumps({}), 200, {'Content-Type': 'application/json; charset=utf-8'}
         params[param] = param_value
-    url = "https://fftt.dafunker.com/v1//proxy/xml_chp_renc.php"
-    response = session.get(url, params=params)
+
+    response = get_team_matchs_query(params)
     """
     {
       "liste": {
@@ -291,6 +307,136 @@ def get_team_matchs():
     }
     """
     return format_response(response)
+
+@app.route("/api/result_perfs", methods=['GET', 'OPTIONS'])
+def get_teams_perfs():
+    mandatory_params = [
+        'club_id', 'club_name', 'rencontre_choice'
+    ]
+    params = {}
+    for param in mandatory_params:
+        param_value = request.args.get(param, "")
+        if not param_value:
+            abort(400)
+            #  return json.dumps({}), 200, {'Content-Type': 'application/json; charset=utf-8'}
+        params[param] = param_value
+
+    CLUB_ID = params['club_id']
+    CLUB_NAME = params['club_name']
+    RENCONTRE_CHOICE = params['rencontre_choice']
+
+    group_regex = re.compile(r'(.+) J\d+ \((.+)\)')
+    match_text_value = group_regex.match(RENCONTRE_CHOICE)
+    group = match_text_value.group(1)
+    DATE_PREVUE = match_text_value.group(2)
+
+    """
+    ORGANISME_NATIONAL_IDS = ['1']
+    ORGANISME_REGIONAL, _, _ = format_response(get_organismes('L'))
+    ORGANISME_REGIONAL_IDS = [
+        item.get('id') for item in json.loads(ORGANISME_REGIONAL)['liste']['organisme']
+    ]
+    ORGANISME_DEPARTEMENTAL, _, _ = format_response(get_organismes('D'))
+    ORGANISME_DEPARTEMENTAL_IDS = [
+        item.get('id') for item in json.loads(ORGANISME_DEPARTEMENTAL)['liste']['organisme']
+    ]
+    """
+
+    teams = get_teams(CLUB_ID)
+    PERFS = []
+
+    for team in teams:
+        division = team.get('liendivision')
+        """
+        pattern = r'organisme_pere=(\d+)'
+        match = re.search(pattern, division)
+        organisme_id = str(match.group(1))
+        groups = ['National', 'Régional', 'Départemental']
+        if organisme_id in ORGANISME_NATIONAL_IDS:
+            group = 'National'
+        elif organisme_id in ORGANISME_REGIONAL_IDS:
+            group = 'Régional'
+        elif organisme_id in ORGANISME_DEPARTEMENTAL_IDS:
+            group = 'Départemental'
+        else:
+            raise Exception(f'Unknown group for organisme_id={organisme_id}')
+        """
+        result_params_dict = {
+          item.split('=')[0]:item.split('=')[1] for item in division.split('&')
+        }
+        rencontres, _, _ = format_response(get_team_results_query(result_params_dict['D1'], result_params_dict['cx_poule']))
+        matchs = []
+        for rencontre in json.loads(rencontres)['liste']['tour']:
+            if rencontre.get('dateprevue') != DATE_PREVUE:
+                continue
+            match_params=rencontre.get('lien')
+            match_params_dict = {
+              item.split('=')[0]:item.split('=')[1] for item in match_params.split('&')
+            }
+            matchs, _, _ = format_response(get_team_matchs_query(match_params_dict))
+            matchs = json.loads(matchs)
+
+            # Filter on matchs from club_id
+            is_equa = match_params_dict['clubnum_1'] == str(CLUB_ID)
+            is_equb = match_params_dict['clubnum_2'] == str(CLUB_ID)
+            if not is_equa and not is_equb:
+                continue
+            players = matchs['liste']['joueur']
+            if is_equa:
+                player_names = [p['xja'] for p in players]
+            else:
+                player_names = [p['xjb'] for p in players]
+            #  print(player_names)
+            for name in player_names:
+                player_info = utils.get_player_info(session, CLUB_NAME, name)
+                player_license = player_info['license']
+                player_matchs = utils.get_player_matchs(session, player_license)
+                # Filter matchs for a specific date
+                filtered_matchs = [
+                    entry for entry in player_matchs['list'] if any(
+                        journee['date'] == DATE_PREVUE for journee in entry.get('journees', [])
+                    )
+                ][0]['journees'][0]['matchs']
+                for match in filtered_matchs:
+                    player = {}
+                    for p in players:
+                        if p['xja'] == name:
+                            player['team_player_name'] = p['xja']
+                            player['team_player_score'] = p['xca']
+                        if p['xjb'] == name:
+                            player['team_player_name'] = p['xjb']
+                            player['team_player_score'] = p['xcb']
+                        if p['xja'] == match['nom']:
+                            player['opposite_team_player_name'] = p['xja']
+                            player['opposite_team_player_score'] = p['xca']
+                        if p['xjb'] == match['nom']:
+                            player['opposite_team_player_name'] = p['xjb']
+                            player['opposite_team_player_score'] = p['xcb']
+                    PERFS.append(dict(name=name, player=player, match=match))
+
+    PERFS = sorted(
+        PERFS,
+        key=lambda perf: (
+            perf['match']['ex'],
+            abs(utils.extract_int(perf['player']['opposite_team_player_score']) - utils.extract_int(perf['player']['team_player_score']))
+        ),
+        reverse=True
+    )
+    RESULT = PERFS[:8]
+    RESULT_DISPLAY=[]
+    MEDALS = ['🥇', '🥈', '🥉']
+    DEFAULT_MEDAL = '🏓'
+    for key, result in enumerate(RESULT):
+      if key < len(MEDALS):
+        medal = MEDALS[key]
+      else:
+        medal = DEFAULT_MEDAL
+      RESULT_DISPLAY.append(
+          f'{medal} (+{utils.convert_to_float(result["match"]["ex"])}) {result["player"]["team_player_name"]} ({utils.extract_int(result["player"]["team_player_score"])}pts)' + \
+          ' VS ' \
+          f'{result["player"]["opposite_team_player_name"]} ({utils.extract_int(result["player"]["opposite_team_player_score"])}pts)'
+      )
+    return json.dumps(RESULT_DISPLAY), 200, {'Content-Type': 'application/json; charset=utf-8'}
 
 
 if __name__ == "__main__":
