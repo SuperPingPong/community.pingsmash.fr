@@ -373,9 +373,10 @@ function computeGlobalResults(teams, targetGroup, targetDate, club_id, club_name
               resolve()
           }
 
+
           if (group !== targetGroup) {
             resolve()
-            // return
+            return
           }
 
           // Perform a GET request to retrieve team results
@@ -393,8 +394,8 @@ function computeGlobalResults(teams, targetGroup, targetDate, club_id, club_name
 
               // Ignore if no matchs for this team
               if (finalFilteredTourList.length === 0) {
-                // return
                 resolve()
+                return
               }
 
               $.ajax({
@@ -410,16 +411,18 @@ function computeGlobalResults(teams, targetGroup, targetDate, club_id, club_name
 
                     const lien = team.lien
                     resultTeamDetails[team.lien] = {}
+                    // console.log(team.lien)
+                    // console.log(division)
                     $.ajax({
                       url: '/api/result_chp_renc?' + team.lien,
                       method: 'GET',
                       success: function(resultTeam) {
+                        // console.log(resultTeam)
                         if (typeof(resultTeam.liste) !== 'undefined') {
                           resultTeamDetails[team.lien]['details'] = resultTeam
                         }
 
                         // console.log(resultTeam)
-
                         // console.log([team, club_id])
                         const emoji = mapResultsToEmoji(team, club_id);
                         if (emoji !== '❓') {
@@ -429,8 +432,6 @@ function computeGlobalResults(teams, targetGroup, targetDate, club_id, club_name
                         const colDiv = $(`
                           <div class="col-sm-4 teamResultsGlobal"></div>
                         `); // Create a column element
-                        const rankEqua = getRankFromTeam(resultRank, team.equa)
-                        const rankEqub = getRankFromTeam(resultRank, team.equb)
 
                         let scoreWin;
                         let teamScorea = 0;
@@ -455,6 +456,7 @@ function computeGlobalResults(teams, targetGroup, targetDate, club_id, club_name
                               } else {
                                 const scorea = parseInt(partie.scorea);
                                 teamScorea += isNaN(scorea) ? 0 : scorea;
+                                // console.log(['teamScorea', teamScorea, partie])
                               }
                             }
                           });
@@ -468,6 +470,7 @@ function computeGlobalResults(teams, targetGroup, targetDate, club_id, club_name
                               } else {
                                 const scoreb = parseInt(partie.scoreb);
                                 teamScoreb += isNaN(scoreb) ? 0 : scoreb;
+                                // console.log(['teamScoreb', teamScoreb, partie])
                               }
                             }
                           });
@@ -476,23 +479,49 @@ function computeGlobalResults(teams, targetGroup, targetDate, club_id, club_name
 
                         // /result_chp_renc and /team/rank does not map equa and equb so same team sometime
                         // fixing this edge case
-                        let customTeamScorea, customTeamScoreb
+                        let teamEqua, teamEqub
+                        let rankEqua, rankEqub
+                        // console.log([team.lien, team, resultTeam.liste])
                         if (typeof(resultTeam.liste) !== 'undefined') {
-                          if (team.equa == resultTeam.liste.resultat.equa) {
-                            customTeamScorea = teamScorea
-                            customTeamScoreb = teamScoreb
+                          if (team.equa === resultTeam.liste.resultat.equa) {
+                              teamEqua = team.equa === null ? "" : resultTeam.liste.resultat.equa.replace(/ /g, '\u00A0')
+                              teamEqub = team.equb === null ? "" : resultTeam.liste.resultat.equb.replace(/ /g, '\u00A0')
+                              rankEqua = getRankFromTeam(resultRank, team.equa)
+                              rankEqub = getRankFromTeam(resultRank, team.equb)
+                          } else if (team.equa === resultTeam.liste.resultat.equb) {
+                              teamEqua = team.equa === null ? "" : resultTeam.liste.resultat.equa.replace(/ /g, '\u00A0')
+                              teamEqub = team.equb === null ? "" : resultTeam.liste.resultat.equb.replace(/ /g, '\u00A0')
+                              // swap rank
+                              rankEqub = getRankFromTeam(resultRank, team.equa)
+                              rankEqua = getRankFromTeam(resultRank, team.equb)
                           } else {
-                            customTeamScorea = teamScoreb
-                            customTeamScoreb = teamScorea
+                            console.log('xxxxxxxxxxxxxxxxxxxxxxx')
+                            console.log(team)
+                            console.log(resultTeam.liste)
+                            console.log('xxxxxxxxxxxxxxxxxxxxxxx')
+                            throw Error('Cannot match team.equ with resultTeam.liste.resultat.equ')
                           }
                         } else {
-                          customTeamScorea = ''
-                          customTeamScoreb = ''
+                          teamEqua = team.equa === null ? "" : team.equa.replace(/ /g, '\u00A0')
+                          teamEqub = team.equb === null ? "" : team.equb.replace(/ /g, '\u00A0')
+                          rankEqua = getRankFromTeam(resultRank, team.equa)
+                          rankEqub = getRankFromTeam(resultRank, team.equb)
                         }
+
+                        /*
+                        console.log('oooooooooooooooooooooooooooooooooooooooo')
+                        console.log([team.equa, team.equb, resultTeam.liste.resultat.equa, resultTeam.liste.resultat.equb])
+                        console.log([team.equa === resultTeam.liste.resultat.equa, team.equa === resultTeam.liste.resultat.equb])
+                        console.log([teamEqua, teamEqub])
+                        console.log(team)
+                        console.log(resultTeam.liste)
+                        console.log(customTeamScorea, customTeamScoreb)
+                        console.log('oooooooooooooooooooooooooooooooooooooooo')
+                        */
 
                         colDiv.html(`
                           <span style='color: grey'>${libdivision}</span>
-                          <br>${emoji} ${team.equa === null ? "" : team.equa.replace(/ /g, '\u00A0')}${rankEqua !== null ? ` (${rankEqua})` : ''} - ${team.equb === null ? "" : team.equb.replace(/ /g, '\u00A0')}${rankEqub !== null ? ` (${rankEqub})` : ''}${(team.scorea !== null && team.scoreb !== null) ? ` | <b>${customTeamScorea}-${customTeamScoreb}</b>` : ""}
+                          <br>${emoji} ${teamEqua}${rankEqua !== null ? ` (${rankEqua})` : ''} - ${teamEqub}${rankEqub !== null ? ` (${rankEqub})` : ''}${(team.scorea !== null && team.scoreb !== null) ? ` | <b>${teamScorea}-${teamScoreb}</b>` : ""}
                         `);
                         resolve(colDiv)
                       },
@@ -508,7 +537,6 @@ function computeGlobalResults(teams, targetGroup, targetDate, club_id, club_name
         })
       })
     });
-    // console.log(promises)
     const rowDivGlobal = $('<div class="row"></div>');
     const colDivGlobalResults = $('<div class="col-sm-8"></div>');
     colDivGlobalResults.append(`
@@ -532,16 +560,14 @@ function computeGlobalResults(teams, targetGroup, targetDate, club_id, club_name
     const rowDivGlobalResults = $('<div class="row"></div>');
     const rowDivGlobalPerfs = $('<div class="row"></div>');
     const defaultPerf = $(`
-<div class="col-sm-12 d-flex align-items-center justify-content-center">
-  <div class="text-center">
-    <div class="spinner-border" role="status">
-      <span class="sr-only">Loading...</span>
-    </div>
-  </div>
-</div>
-
-    `); // Create a column element
-    // defaultPerf.empty();
+      <div class="col-sm-12 d-flex align-items-center justify-content-center">
+        <div class="text-center">
+          <div class="spinner-border" role="status">
+            <span class="sr-only">Loading...</span>
+          </div>
+        </div>
+      </div>
+    `);
     Promise.all(promises)
     .then((colDivs) => {
 
@@ -563,7 +589,7 @@ function computeGlobalResults(teams, targetGroup, targetDate, club_id, club_name
         success: function(perfs) {
           const $ul = $('<ul>');
           perfs.result_display.forEach(perf => {
-            const $li = $('<li class="teamResultsGlobal">').text(perf);
+            const $li = $('<li class="teamResultsGlobal">').text(perf.result);
             $ul.append($li);
           });
           colDivGlobalPerfs.empty();
@@ -688,9 +714,15 @@ function display_rencontre(club_id, club_name, selectedValue) {
                     const teamResults = finalFilteredTourList.map((team) => {
                       // console.log(team)
                       let resultTeam = null;
+                      // console.log(team.lien)
+                      if (typeof(resultTeamDetails[team.lien]) === 'undefined') {
+                        resolve()
+                        return
+                      } // HTTP 400 on fetch /api/result_chp_renc, generally no opposite team
                       resultTeam = resultTeamDetails[team.lien]['details']
                       if (typeof(resultTeam) === 'undefined') {
                         resolve()
+                        return
                       } // HTTP 400 on fetch /api/result_chp_renc, generally no opposite team
                       // console.log(resultTeam)
 
@@ -710,12 +742,43 @@ function display_rencontre(club_id, club_name, selectedValue) {
                       const colDiv = $(`
                         <div class="col-sm-4 teamResultsDetails"></div>
                       `); // Create a column element
-                      const rankEqua = getRankFromTeam(resultRank, team.equa)
-                      const rankEqub = getRankFromTeam(resultRank, team.equb)
+
+                      // /result_chp_renc and /team/rank does not map equa and equb so same team sometime
+                      // fixing this edge case
+                      let teamScorea, teamScoreb
+                      let teamEqua, teamEqub
+                      let rankEqua, rankEqub
+                      if (typeof(resultTeam.liste) !== 'undefined') {
+                        if (team.equa === resultTeam.liste.resultat.equa) {
+                            teamEqua = team.equa === null ? "" : resultTeam.liste.resultat.equa.replace(/ /g, '\u00A0')
+                            teamEqub = team.equb === null ? "" : resultTeam.liste.resultat.equb.replace(/ /g, '\u00A0')
+                            rankEqua = getRankFromTeam(resultRank, team.equa)
+                            rankEqub = getRankFromTeam(resultRank, team.equb)
+                            teamScorea = team.scorea
+                            teamScoreb = team.scoreb
+                        } else if (team.equa === resultTeam.liste.resultat.equb) {
+                            teamEqua = team.equa === null ? "" : resultTeam.liste.resultat.equa.replace(/ /g, '\u00A0')
+                            teamEqub = team.equb === null ? "" : resultTeam.liste.resultat.equb.replace(/ /g, '\u00A0')
+                            // swap rank and score
+                            rankEqub = getRankFromTeam(resultRank, team.equa)
+                            rankEqua = getRankFromTeam(resultRank, team.equb)
+                            teamScorea = team.scoreb
+                            teamScoreb = team.scorea
+                        } else {
+                          console.log('xxxxxxxxxxxxxxxxxxxxxxx')
+                          console.log(team)
+                          console.log(resultTeam.liste)
+                          console.log('xxxxxxxxxxxxxxxxxxxxxxx')
+                          throw Error('Cannot match team.equ with resultTeam.liste.resultat.equ')
+                        }
+                      } else {
+                        customTeamScorea = ''
+                        customTeamScoreb = ''
+                      }
 
                       colDiv.html(`
                         <span style='color: grey'>${libdivision}</span>
-                        <br>${emoji} ${team.equa === null ? "" : team.equa}${rankEqua !== null ? ` (${rankEqua})` : ''} - ${team.equb === null ? "" : team.equb}${rankEqub !== null ? ` (${rankEqub})` : ''}${(team.scorea !== null && team.scoreb !== null) ? ` | <b>${team.scorea}-${team.scoreb}</b>` : ""}
+                        <br>${emoji} ${teamEqua}${rankEqua !== null ? ` (${rankEqua})` : ''} - ${teamEqub}${rankEqub !== null ? ` (${rankEqub})` : ''}${(team.scorea !== null && team.scoreb !== null) ? ` | <b>${teamScorea}-${teamScoreb}</b>` : ""}
                         <hr>
                       `);
 
