@@ -1,5 +1,7 @@
 from flask import Flask, request, abort
 from flask_cors import CORS
+import sentry_sdk
+from sentry_sdk.integrations.flask import FlaskIntegration
 
 from os import environ
 import json
@@ -18,12 +20,25 @@ cors = CORS(app)
 app.config['CORS_HEADERS'] = 'Content-Type'
 debug = environ.get('DEBUG', False)
 
+SENTRY_DSN = environ.get('SENTRY_DSN')
+if SENTRY_DSN is None:
+    raise Exception('Please configure environment variable SENTRY_DSN')
+sentry_sdk.init(
+    dsn=SENTRY_DSN,
+    integrations=[FlaskIntegration()]
+)
+
+# Error handler for other exceptions
+@app.errorhandler(Exception)
+def handle_exception(error):
+    sentry_sdk.capture_exception(error)
+    return error.description, error.code
+
 session = requests.session()
 session.verify = False
 
 with open('map.json', 'rb') as f:
     MAP_CLUB_NAME_CLUB_ID = json.loads(f.read())
-
 
 @app.route('/api/club/search', methods=['GET', 'OPTIONS'])
 def search_club():

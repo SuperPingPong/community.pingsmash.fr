@@ -4,3 +4,6 @@
 # cache
 backend/__pycache__
 export/__pycache__
+
+# env
+.env
