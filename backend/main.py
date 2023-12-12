@@ -430,6 +430,8 @@ def get_teams_perfs():
                 for match in filtered_matchs:
                     player = {}
                     for p in players:
+                        if p['xja'] is None or p['xjb'] is None:
+                          continue
                         if p['xja'].lower() == name.lower():
                             player['team_player_name'] = p['xja']
                             player['team_player_score'] = p['xca']
