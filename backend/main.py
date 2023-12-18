@@ -27,12 +27,21 @@ sentry_sdk.init(
     dsn=SENTRY_DSN,
     integrations=[FlaskIntegration()]
 )
+sentry_sdk.set_tag("app", "fftt-community")
 
 # Error handler for other exceptions
 @app.errorhandler(Exception)
 def handle_exception(error):
     sentry_sdk.capture_exception(error)
-    return error.description, error.code
+    if not hasattr(error, 'code'):
+        error_code = 500
+    else:
+        error_code = error.code
+    if not hasattr(error, 'description'):
+        error_description = ''
+    else:
+        error_description = error.description
+    return error_description, error_code
 
 session = requests.session()
 session.verify = False
@@ -405,6 +414,9 @@ def get_teams_perfs():
             # Sometimes clubnum_1 is not mapped to equa
             equa = matchs['liste']['resultat']['equa']
             #  equb = matchs['liste']['resultat']['equb']
+            if players is None:
+                continue
+
             if match_params_dict['equip_1'] == equa:
                 if is_equ1:
                   player_names = [p['xja'] for p in players]
