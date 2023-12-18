@@ -465,10 +465,10 @@ def get_teams_perfs():
                         if p['xjb'].lower() == name.lower():
                             player['team_player_name'] = p['xjb']
                             player['team_player_score'] = p['xcb']
-                        if p['xja'].lower() == match['nom'].encode('latin-1').decode('utf-8').lower():
+                        if p['xja'].lower().encode() == match['nom'].encode('latin-1').lower():
                             player['opposite_team_player_name'] = p['xja']
                             player['opposite_team_player_score'] = p['xca']
-                        if p['xjb'].lower() == match['nom'].encode('latin-1').decode('utf-8').lower():
+                        if p['xjb'].lower().encode() == match['nom'].encode('latin-1').lower():
                             player['opposite_team_player_name'] = p['xjb']
                             player['opposite_team_player_score'] = p['xcb']
                     # Manage if there is some matchs if absent player
