@@ -427,6 +427,8 @@ def get_teams_perfs():
             #  equb = matchs['liste']['resultat']['equb']
             if players is None:
                 continue
+            # Filter out None from players
+            players = [p for p in players if p is not None]
 
             if match_params_dict['equip_1'] == equa:
                 if is_equ1:
