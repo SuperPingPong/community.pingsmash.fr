@@ -7,6 +7,8 @@ from os import environ
 import json
 import re
 import requests
+from requests.adapters import HTTPAdapter
+from urllib3.util.retry import Retry
 import urllib3
 from urllib.parse import unquote
 
@@ -43,8 +45,17 @@ def handle_exception(error):
         error_description = error.description
     return error_description, error_code
 
+retry_strategy = Retry(
+    total=3, #  Maximum number of retries
+    backoff_factor=0.3, #  Exponential backoff factor
+    status_forcelist=[500, 502, 503, 504]  # HTTP status codes to retry on
+)
+
 session = requests.session()
 session.verify = False
+adapter = HTTPAdapter(max_retries=retry_strategy)
+session.mount('http://', adapter)
+session.mount('https://', adapter)
 
 with open('map.json', 'rb') as f:
     MAP_CLUB_NAME_CLUB_ID = json.loads(f.read())
